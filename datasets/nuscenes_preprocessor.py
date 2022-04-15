@@ -1,15 +1,34 @@
 import os
 import numpy as np
 
+from datasets import CAM2RADARS
+
 from nuscenes.nuscenes import NuScenes
 from nuscenes.can_bus.can_bus_api import NuScenesCanBus
 from nuscenes.utils.splits import create_splits_scenes
 
-class NuScenesProcessor:
-    """ nuScenes Dataset
+class NuScenesIterator:
+    """An iterator to iterate over the selcted scenes
+    """
+    def __init__(self, nusc_proc, scenes=[]):
+        pass
 
-    Prepare train_list and val_list of sample_data tokens from selected cameras
+    def __iter__(self):
+        pass
+
+    def __next__(self):
+        pass
+
+
+class NuScenesProcessor:
+    """ nuScenes Dataset Preprocessor
+
+    There two main functionalities:
+
+    1)Prepare train_list and val_list of sample_data tokens from selected cameras
     Multi-threading may be considered
+
+    2)Let users create iterators over the data of the desired scenes
 
     """
 
@@ -18,11 +37,9 @@ class NuScenesProcessor:
 
         self.version = version
         self.data_root = data_root
+        # initialize an instance of nuScenes data
         self.nusc = NuScenes(version=self.version, dataroot=self.data_root)
-
-        self.frame_ids = sorted(frame_ids)
-
-        # whether to use canbus info
+        # initialize an instance of nuScenes canbus data if needed
         if speed_limits[0] == 0.0 and np.isposinf(speed_limits[1]):
             self.use_canbus = False
         else:
@@ -30,43 +47,27 @@ class NuScenesProcessor:
             self.speed_limits = speed_limits
             self.use_canbus = True
 
+        # make sure the sequence ids are sorted in ascending order
+        self.frame_ids = sorted(frame_ids)
+
         # each scene contains info of all the sensor channels
         self.cameras = cameras
-
-    def gen_tokens(self):
-        if self.version == 'v1.0-mini':
-            split_names = ['mini_train', 'mini_val']
-        elif self.version == 'v1.0-trainval':
-            split_names = ['train', 'val']
-        elif self.version == 'v1.0-test':
-            split_names = ['test']
-        else:
-            raise NotImplementedError
-
-        # dictionary of the official splits
-        all_splits = create_splits_scenes()
-
-        all_split_tokens = []
-
-        for split_name in split_names:
-            split = all_splits[split_name]
-            all_scenes = self.get_avail_scenes(split)
-            split_tokens = []
-            for camera in self.cameras:
-                for scene in all_scenes:
-                    camera_frames = self.get_camera_sample_data(
-                            scene, camera)
-                    split_tokens.extend(camera_frames)
-            all_split_tokens.append(split_tokens)
-
-        return all_split_tokens
 
     def get_avail_scenes(self, split):
         """Return the metadata of all the available scenes contained in split
 
+        Args:
+            split(list of str): a list of a subset of scenes
+
         scenes meet the follows are filtered out:
         (1) do not have canbus data if self.use_canbus = True
         (2) data does not exist in hard drive (use CAM_FRONT as representative)
+
+        By including the design of (2), we allow the use cases when users only
+        download a subset of raw files.
+        Ex: when version is set as v1.0-trainval, any subsets of the set of
+        all the 10 blobs.tgz files as shown:
+            [v1.0-trainval01_blobs.tgz - v1.0-trainval010_blobs.tgz]
         """
 
         scenes = self.nusc.scene
@@ -74,7 +75,6 @@ class NuScenesProcessor:
         if self.use_canbus:
             # filter out scenes that have no canbus data
             # TODO: check if 419 should be added
-            # total number = 22
             canbus_blacklist = self.canbus.can_blacklist + [419]
             canbus_blacklist = set([f'scene-{i:04d}' for i in canbus_blacklist])
             scenes = [scene for scene in scenes if scene['name']
@@ -83,9 +83,6 @@ class NuScenesProcessor:
         split = set(split)
 
         # exclude the scenes whose first sample does not exist
-        # assume users may download only a subset of data
-        # for example, only v1.0-trainval01_blobs.tgz is downloaded
-        # out of the 10 blobs in the whole nuscenes dataset
         kept_indices = []
         for idx, scene in enumerate(scenes):
             first_sample_token = scene['first_sample_token']
@@ -102,7 +99,7 @@ class NuScenesProcessor:
     def get_vehicle_speed(self, scene):
         """Return timestamps and vehicle speed of the specified scene
 
-        output:
+        Returns:
             veh_speed: numpy array with shape (2, N)
                        1st row => timestamps
                        2nd row => speeds
@@ -180,17 +177,24 @@ class NuScenesProcessor:
         return all_sample_data
 
     def check_frame_validity(self, sample_data, scene_veh_speed):
-        """ Check if sample_data is valid
+        """ Check if a sample_data is valid
         Args:
             sample_data: metadata of a sample_data
             scene_veh_speed: the speed curve of the scene of the sample_data
+
+        A frame is valid if:
+            1) whose required adjacent frames exist according to frame_ids
+            2) the frame itself and its adjacent frames meet the speed
+               requirements
         """
 
+        # check if the speed meet the requirements
         if not self.is_speed_valid(sample_data, scene_veh_speed):
             return False
 
         repr_frame_ids = [self.frame_ids[0], self.frame_ids[-1]]
 
+        # check if the existence of the required adjacents and their frames
         for f_id in repr_frame_ids:
             sample_data_copy = sample_data
             num_tracing = abs(f_id)
@@ -230,6 +234,36 @@ class NuScenesProcessor:
                 return False
 
         return True
+
+    def gen_tokens(self):
+        """Generate two lists of camera tokens for training and val dataloaders
+        """
+        if self.version == 'v1.0-mini':
+            split_names = ['mini_train', 'mini_val']
+        elif self.version == 'v1.0-trainval':
+            split_names = ['train', 'val']
+        elif self.version == 'v1.0-test':
+            split_names = ['test']
+        else:
+            raise NotImplementedError
+
+        # dictionary of the official splits
+        all_splits = create_splits_scenes()
+
+        all_split_tokens = []
+
+        for split_name in split_names:
+            split = all_splits[split_name]
+            all_scenes = self.get_avail_scenes(split)
+            split_tokens = []
+            for camera in self.cameras:
+                for scene in all_scenes:
+                    camera_frames = self.get_camera_sample_data(
+                            scene, camera)
+                    split_tokens.extend(camera_frames)
+            all_split_tokens.append(split_tokens)
+
+        return all_split_tokens
 
 
 if __name__ == '__main__':
