@@ -42,7 +42,13 @@ class NuScenesIterator:
         self.visibilities = visibilities
 
         if len(scene_names) == 0:
-            self.all_camera_tokens = sum(self.nusc_proc.gen_tokens(), [])
+            if version != 'v1.0-test':
+                self.all_camera_tokens = sum([
+                    self.nusc_proc.gen_tokens(is_train=True),
+                    self.nusc_proc.gen_tokens(is_train=False)], [])
+            else:
+                self.all_camera_tokens = sum([
+                    self.nusc_proc.gen_tokens(is_train=False)], [])
         else:
             scenes = self.nusc_proc.get_avail_scenes(scene_names)
             self.all_camera_tokens = []
@@ -102,9 +108,22 @@ class NuScenesProcessor:
         self.data_root = data_root
         # initialize an instance of nuScenes data
         self.nusc = NuScenes(version=self.version, dataroot=self.data_root)
+        all_splits = create_splits_scenes()
         # dictionary of the official splits
         # key: split name; value: scenes in the split
-        self.all_splits = create_splits_scenes()
+        if self.version == 'v1.0-mini':
+            self.usable_splits = {
+                    'train': all_splits['mini_train'],
+                    'val': all_splits['mini_val']}
+        elif self.version == 'v1.0-trainval':
+            self.usable_splits = {
+                    'train': all_splits['train'],
+                    'val': all_splits['val']}
+        elif self.version == 'v1.0-test':
+            self.usable_splits = {'val': self.all_splits['test']}
+        else:
+            raise NotImplementedError
+
         # initialize an instance of nuScenes canbus data if needed
         if speed_limits[0] == 0.0 and np.isposinf(speed_limits[1]):
             self.screen_speed = False
@@ -167,34 +186,34 @@ class NuScenesProcessor:
 
         return scenes
 
-    def gen_tokens(self):
+    def gen_tokens(self, is_train=True):
         """Generate a list of camera tokens according to the available splits
         """
         if self.version == 'v1.0-mini':
             split_names = ['mini_train', 'mini_val']
         elif self.version == 'v1.0-trainval':
             split_names = ['train', 'val']
-        elif self.version == 'v1.0-test':
-            split_names = ['test']
         else:
+            # does not support version = v1.0-test
+            # split_names = ['test']
             raise NotImplementedError
 
-        all_split_tokens = []
+        if is_train:
+            split = self.usable_splits['train']
+        else:
+            split = self.usable_splits['val']
 
-        for split_name in split_names:
-            split = self.all_splits[split_name]
-            all_scenes = self.get_avail_scenes(split)
-            split_tokens = []
 
-            for camera in self.cameras:
-                for scene in all_scenes:
-                    camera_frames = self.get_camera_sample_data(
-                            scene, camera, use_keyframe=self.use_keyframe)
-                    split_tokens.extend(camera_frames)
+        all_tokens = []
+        all_scenes = self.get_avail_scenes(split)
 
-            all_split_tokens.append(split_tokens)
+        for camera in self.cameras:
+            for scene in all_scenes:
+                camera_frames = self.get_camera_sample_data(
+                        scene, camera, use_keyframe=self.use_keyframe)
+                all_tokens.extend(camera_frames)
 
-        return all_split_tokens
+        return all_tokens
 
     def get_camera_sample_data(self, scene, camera, use_keyframe=False,
             token_only=True):
