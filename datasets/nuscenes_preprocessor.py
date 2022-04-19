@@ -4,11 +4,13 @@ import numpy as np
 import bisect
 from matplotlib import pyplot as plt
 
-
-
 from nuscenes.nuscenes import NuScenes
 from nuscenes.can_bus.can_bus_api import NuScenesCanBus
 from nuscenes.utils.splits import create_splits_scenes
+from nuscenes.scripts.export_2d_annotations_as_json import post_process_coords, \
+                                                           generate_record
+from nuscenes.utils.geometry_utils import view_points
+from pyquaternion.quaternion import Quaternion
 
 from . import CAM2RADARS
 from .mono_dataset import pil_loader
@@ -22,7 +24,8 @@ class NuScenesIterator:
 
     def __init__(self, version, data_root, frame_ids, width, height, 
             speed_limits=[0.0, np.inf], cameras=['CAM_FRONT'],
-            scene_names=[], fused_dist_sensor='radar'):
+            scene_names=[], use_keyframe=False, fused_dist_sensor='radar',
+            visibilities=['', '1', '2', '3', '4']):
         """Constructor of the iterator
         Args:
             scenes(list of str): the format of each entry must be 'scene-xxxx'
@@ -31,9 +34,12 @@ class NuScenesIterator:
             height: target height of the output image
         """
         self.nusc_proc = NuScenesProcessor(version, data_root, frame_ids,
-                speed_limits=speed_limits, cameras=cameras)
+                speed_limits=speed_limits, cameras=cameras,
+                use_keyframe=use_keyframe)
         self.width, self.height = width, height
+        self.use_keyframe = use_keyframe
         self.fused_dist_sensor = fused_dist_sensor
+        self.visibilities = visibilities
 
         if len(scene_names) == 0:
             self.all_camera_tokens = sum(self.nusc_proc.gen_tokens(), [])
@@ -43,7 +49,8 @@ class NuScenesIterator:
             for camera in cameras:
                 for scene in scenes:
                     camera_tokens = self.nusc_proc.get_camera_sample_data(
-                            scene, camera)
+                            scene, camera
+                            )
                     self.all_camera_tokens.extend(camera_tokens)
 
         self.idx = 0
@@ -57,7 +64,7 @@ class NuScenesIterator:
             raise StopIteration
 
         camera_token = self.all_camera_tokens[self.idx]
-        nusc = self.nusc_proc.nusc
+        #bboxes = self.nusc_proc.get_2d_bboxes(camera_token)
         # bad design - exposure of the data in self.nusc_proc
         camera_sample_data = self.nusc_proc.nusc.get('sample_data',
                 camera_token)
@@ -88,7 +95,8 @@ class NuScenesProcessor:
     """
 
     def __init__(self, version, data_root, frame_ids,
-            speed_limits=[0.0, np.inf], cameras=['CAM_FRONT']):
+            speed_limits=[0.0, np.inf], cameras=['CAM_FRONT'],
+            use_keyframe=False):
 
         self.version = version
         self.data_root = data_root
@@ -110,6 +118,8 @@ class NuScenesProcessor:
 
         # each scene contains info of all the sensor channels
         self.cameras = cameras
+
+        self.use_keyframe=use_keyframe
 
     def get_avail_scenes(self, scene_names):
         """Return the metadata of all the available scenes contained in split
@@ -179,14 +189,15 @@ class NuScenesProcessor:
             for camera in self.cameras:
                 for scene in all_scenes:
                     camera_frames = self.get_camera_sample_data(
-                            scene, camera)
+                            scene, camera, use_keyframe=self.use_keyframe)
                     split_tokens.extend(camera_frames)
 
             all_split_tokens.append(split_tokens)
 
         return all_split_tokens
 
-    def get_camera_sample_data(self, scene, camera, token_only=True):
+    def get_camera_sample_data(self, scene, camera, use_keyframe=False,
+            token_only=True):
         """Collects all valid sample_data of a camera in a scene
 
         validity check is conducted in the while loop, including:
@@ -207,22 +218,37 @@ class NuScenesProcessor:
         sample_token = scene['first_sample_token']
         keyframe = self.nusc.get('sample', sample_token)
 
-        # get first sample_data token for the specified camera
-        sample_data = self.nusc.get('sample_data', keyframe['data'][camera])
+        # get first sample token for the specified camera
+        if use_keyframe:
+            sample = keyframe
+        else:
+            sample = self.nusc.get('sample_data', keyframe['data'][camera])
         sample_exist = True
 
         all_sample_data = []
 
         while sample_exist:
-            if self.check_frame_validity(sample_data, scene_veh_speed):
+            if self.check_frame_validity(sample, scene_veh_speed,
+                    use_keyframe=use_keyframe):
+
+                if use_keyframe:
+                    sample_data = self.nusc.get('sample_data',
+                                                sample['data'][camera])
+                else:
+                    sample_data = sample
+
                 if token_only:
                     all_sample_data.append(sample_data['token'])
                 else:
                     all_sample_data.append(sample_data)
 
-            sample_exist = (sample_data['next'] != '')
+            sample_exist = (sample['next'] != '')
+
             if sample_exist:
-                sample_data = self.nusc.get('sample_data', sample_data['next'])
+                if use_keyframe:
+                    sample = self.nusc.get('sample', sample['next'])
+                else:
+                    sample = self.nusc.get('sample_data', sample['next'])
 
         return all_sample_data
 
@@ -369,11 +395,12 @@ class NuScenesProcessor:
             matched_frames.append(sensor_frames[matched_idx])
         return matched_frames
 
-    def check_frame_validity(self, sample_data, scene_veh_speed):
-        """ Check if a sample_data is valid
+    def check_frame_validity(self, sample, scene_veh_speed,
+            use_keyframe = False):
+        """ Check if a sample is valid
         Args:
-            sample_data: metadata of a sample_data
-            scene_veh_speed: the speed curve of the scene of the sample_data
+            sample: metadata of a sample_data or a keyframe
+            scene_veh_speed: the speed curve of the scene of the sample
 
         A frame is valid if:
             1) whose required adjacent frames exist according to frame_ids
@@ -381,9 +408,14 @@ class NuScenesProcessor:
                requirements
         """
 
+        if use_keyframe:
+            retrieval_key = 'sample'
+        else:
+            retrieval_key = 'sample_data'
+
         # check if the speed of the current frame meets the requirements
         if self.screen_speed:
-            if not self.is_speed_valid(sample_data, scene_veh_speed):
+            if not self.is_speed_valid(sample, scene_veh_speed):
                 return False
 
         # check whether to bypass the validity check for the adjacent frames
@@ -394,7 +426,7 @@ class NuScenesProcessor:
 
         # check if the existence of the required adjacents and their frames
         for f_id in repr_frame_ids:
-            sample_data_copy = sample_data
+            sample_copy = sample
             num_tracing = abs(f_id)
 
             if f_id < 0:
@@ -405,27 +437,28 @@ class NuScenesProcessor:
                 continue
 
             while num_tracing > 0:
-                if sample_data_copy[action] == '':
+                if sample_copy[action] == '':
                     return False
-                sample_data_copy = self.nusc.get('sample_data',
-                                                 sample_data_copy[action])
+
+                sample_copy = self.nusc.get(retrieval_key,
+                                            sample_copy[action])
                 if self.screen_speed:
-                    if not self.is_speed_valid(sample_data_copy,
+                    if not self.is_speed_valid(sample_copy,
                                                scene_veh_speed):
                         return False
                 num_tracing -= 1
 
         return True
 
-    def is_speed_valid(self, sample_data, scene_veh_speed):
-        """Check if the sample_data meets the speed requirement
+    def is_speed_valid(self, sample, scene_veh_speed):
+        """Check if a sample meets the speed requirement
         Args:
-            sample_data: metadata of a sample_data
-            scene_veh_speed: the speed curve of the scene of the sample_data
+            sample: metadata of a sample_data or a keyframe
+            scene_veh_speed: the speed curve of the scene of the sample
         """
 
         # Screen out samples not meeting the speed requirement
-        actual_speed = np.interp(sample_data['timestamp'],
+        actual_speed = np.interp(sample['timestamp'],
                                  scene_veh_speed[0],
                                  scene_veh_speed[1])
         low_speed = self.speed_limits[0]
@@ -447,6 +480,74 @@ class NuScenesProcessor:
                   np.clip(xs.astype(np.int), 0, img_shape[1]-1)] = zs
 
         return depth_map
+
+    def get_2d_bboxes(self, cam_token, visibilities=['', '1', '2', '3', '4']):
+        """
+        Get the 2D annotation records for a given `sample_data_token`.
+        :param sample_data_token: Sample data token belonging to a camera keyframe.
+        :param visibilities: Visibility filter.
+        :return: List of 2D annotation record that belongs to the input `sample_data_token`
+        """
+
+        # Get the sample data and the sample corresponding to that sample data.
+        sd_rec = self.nusc.get('sample_data', cam_token)
+
+        if not sd_rec['is_key_frame']:
+            raise ValueError('The 2D re-projections are available only for keyframes.')
+
+        s_rec = self.nusc.get('sample', sd_rec['sample_token'])
+
+        # Get the calibrated sensor and ego pose record to get the transformation matrices.
+        cs_rec = self.nusc.get(
+                'calibrated_sensor',
+                sd_rec['calibrated_sensor_token'])
+        pose_rec = self.nusc.get('ego_pose', sd_rec['ego_pose_token'])
+        camera_intrinsic = np.array(cs_rec['camera_intrinsic'])
+
+        # Get all the annotation with the specified visibilties.
+        ann_recs = [self.nusc.get('sample_annotation', token)for token in s_rec['anns']]
+        ann_recs = [ann_rec for ann_rec in ann_recs if (ann_rec['visibility_token'] in visibilities)]
+
+        repro_recs = []
+
+        for ann_rec in ann_recs:
+            # Augment sample_annotation with token information.
+            ann_rec['sample_annotation_token'] = ann_rec['token']
+            ann_rec['sample_data_token'] = cam_token
+
+            # Get the box in global coordinates.
+            box = self.nusc.get_box(ann_rec['token'])
+
+            # Move them to the ego-pose frame.
+            box.translate(-np.array(pose_rec['translation']))
+            box.rotate(Quaternion(pose_rec['rotation']).inverse)
+
+            # Move them to the calibrated sensor frame.
+            box.translate(-np.array(cs_rec['translation']))
+            box.rotate(Quaternion(cs_rec['rotation']).inverse)
+
+            # Filter out the corners that are not in front of the calibrated sensor.
+            corners_3d = box.corners()
+            in_front = np.argwhere(corners_3d[2, :] > 0).flatten()
+            corners_3d = corners_3d[:, in_front]
+
+            # Project 3d box to 2d.
+            corner_coords = view_points(corners_3d, camera_intrinsic, True).T[:, :2].tolist()
+
+            # Keep only corners that fall within the image.
+            final_coords = post_process_coords(corner_coords)
+
+            # Skip if the convex hull of the re-projected corners does not intersect the image canvas.
+            if final_coords is None:
+                continue
+            else:
+                min_x, min_y, max_x, max_y = final_coords
+
+            # Generate dictionary record to be included in the .json file.
+            repro_rec = generate_record(ann_rec, min_x, min_y, max_x, max_y, cam_token, sd_rec['filename'])
+            repro_recs.append(repro_rec)
+
+        return repro_recs
 
 if __name__ == '__main__':
     version = 'v1.0-mini'

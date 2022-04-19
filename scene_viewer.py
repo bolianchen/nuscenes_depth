@@ -10,7 +10,9 @@ def main(opts):
             opts.nuscenes_version, opts.data_path, opts.frame_ids,
             opts.width, opts.height, speed_limits=opts.speed_limits,
             cameras=opts.camera_channels, 
-            scene_names=opts.scene_names)
+            scene_names=opts.scene_names,
+            use_keyframe=opts.use_keyframe,
+            fused_dist_sensor=opts.fused_dist_sensor)
 
     # the applied frames per second of nuscenes cameras, a constant
     FPS = 12.0

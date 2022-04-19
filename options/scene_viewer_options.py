@@ -19,12 +19,6 @@ class SceneViewerOptions:
                                  default="nuscenes_data",
                                  help="absolute or relative path to the "
                                       "root data folders") 
-        self.parser.add_argument("--scene_names",
-                                 nargs="+",
-                                 type=str,
-                                 default=[],
-                                 help="scenes to iterate over"
-                                      "use all if it is a empty list")
         self.parser.add_argument("--height",
                                  type=int,
                                  help="input image height",
@@ -64,6 +58,20 @@ class SceneViewerOptions:
                             help='selectable from CAM_FRONT, CAM_FRONT_LEFT, '
                                  'CAM_FRONT_RIGHT, CAM_BACK, CAM_BACK_LEFT, '
                                  'CAM_BACK_RIGHT')
+        self.parser.add_argument("--scene_names",
+                                 nargs="+",
+                                 type=str,
+                                 default=[],
+                                 help="scenes to iterate over"
+                                      "use all if it is a empty list")
+        self.parser.add_argument("--use_keyframe",
+                                 action="store_true",
+                                 help="whether to only keyframes")
+        self.parser.add_argument("--fused_dist_sensor",
+                                 type=str,
+                                 default="radar",
+                                 help="which distance sensor to be fused"
+                                      "with camera image")
         self.parser.add_argument('--speed_limits',
                             default=[0, np.inf],
                             type=float,
