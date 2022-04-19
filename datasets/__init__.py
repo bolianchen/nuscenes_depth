@@ -11,5 +11,5 @@ CAM2RADARS = {
         }
 
 from .nuscenes_dataset import NuScenesDataset
-from .nuscenes_preprocessor import NuScenesProcessor
+from .nuscenes_preprocessor import NuScenesProcessor, NuScenesIterator
 
