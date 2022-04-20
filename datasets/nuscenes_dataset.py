@@ -29,9 +29,12 @@ class NuScenesDataset(MonoDataset):
         """
         filenames ==> tokens of camera sample_data frames
         """
+        args = list(args)
+        self.nusc_proc = args[1]
+        self.nusc = self.nusc_proc.nusc
+        args[1] = self.nusc_proc.gen_tokens(is_train=kwargs['is_train'])
+
         super(NuScenesDataset, self).__init__(*args, **kwargs)
-        self.nusc = NuScenes(version=kwargs['nuscenes_version'],
-                dataroot=self.data_path)
 
     def check_depth(self):
         """Check if ground-truth depth exists
@@ -126,139 +129,36 @@ class NuScenesDataset(MonoDataset):
         return token, self.get_image(self.loader(img_path), do_flip, crop_offset)
 
     def load_intrinsics(self, token):
-        """Returns a 4x4 camera intrinsics matrix corresponding to the token"""
-        sample_data = self.nusc.get('sample_data', token)
-        camera_calibration = self.nusc.get(
-                'calibrated_sensor', sample_data['calibrated_sensor_token'])
-        K = np.array(camera_calibration['camera_intrinsic'])
+        """Returns a 4x4 camera intrinsics matrix corresponding to the token
+        """
+
+        # 3x3 camera matrix
+        K = self.nusc_proc.get_cam_intrinsics(token)
         K = np.concatenate( (K, np.array([[0,0,0]]).T), axis = 1 )
         K = np.concatenate( (K, np.array([[0,0,0,1]])), axis = 0 )
         return np.float32(K)
 
-    def get_sensor_map(self, token, ratio, delta_u, delta_v, do_flip,
+    def get_sensor_map(self, cam_token, ratio, delta_u, delta_v, do_flip,
             sensor_type='radar'):
         """Obtains a depth map whose shape is consistent with the resized images
+        Args:
+            cam_token: a camera sample_data token
         Returns:
             a sensor map(from radars or lidar) has shape of (width, height)
         """
 
-        camera_sample_data = self.nusc.get('sample_data', token)
-        camera_channel = camera_sample_data['channel']
-        img_height = camera_sample_data['height']
-        img_width = camera_sample_data['width']
-        #find representative frames of the radars defined by CAM2RADARS
-        matched_radar_frames = self.match_dist_sensor_frames(
-                camera_sample_data, sensor_type=sensor_type)
+        point_cloud_uv = self.nusc_proc.get_proj_dist_sensor(
+                cam_token, sensor_type=sensor_type)
 
-        #project radar points to images
-        #concate radar maps of all the radars
-        for idx, mrf in enumerate(matched_radar_frames):
-            
-            points, depths, _ = (
-                    self.nusc.explorer.map_pointcloud_to_image(
-                        mrf['token'],
-                        camera_sample_data['token'])
-                    )
-            points[2] = depths
-
-            if idx == 0:
-                point_cloud_uv = points
-            else:
-                point_cloud_uv = np.concatenate((point_cloud_uv, points), axis=1)
-
-        # adjust the projected coordinates by ratio, delta_u, delta_v
-        point_cloud_uv[:2] *= ratio
-        point_cloud_uv[0] -= delta_u
-        point_cloud_uv[1] -= delta_v
-        point_cloud_uv = point_cloud_uv[:, point_cloud_uv[0] > 0]
-        point_cloud_uv = point_cloud_uv[:, point_cloud_uv[0] < self.width]
-        point_cloud_uv = point_cloud_uv[:, point_cloud_uv[1] > 0]
-        point_cloud_uv = point_cloud_uv[:, point_cloud_uv[1] < self.height]
+        point_cloud_uv = self.nusc_proc.adjust_cloud_uv(point_cloud_uv,
+                self.width, self.height, ratio, delta_u, delta_v)
 
         # convert to a depth map with the same shape with images
-        depth_map = self.make_depthmap(point_cloud_uv, (self.height, self.width))
+        depth_map = self.nusc_proc.make_depthmap(
+                point_cloud_uv, (self.height, self.width))
 
         if do_flip:
             depth_map = np.flip(depth_map, axis = 1)
 
         return depth_map
-
-    def make_depthmap(self, point_cloud_uv, img_shape):
-        """Reshape projected point cloud to a image-like map
-        Args:
-            point_cloud_uv(numpy.ndarray):
-            img_shape(tuple): (height, width)
-        """
-        xs, ys, zs = point_cloud_uv
-        depth_map = np.zeros(img_shape)
-        depth_map[np.clip(ys.astype(np.int), 0, img_shape[0]-1),
-                  np.clip(xs.astype(np.int), 0, img_shape[1]-1)] = zs
-
-        return depth_map
-
-    def match_dist_sensor_frames(self, camera_sample_data, sensor_type='radar'):
-        """Returns the matched radar frames from the radar channels
-        Args:
-            sensor_type(str): 'radar' or 'lidar'
-        """
-        # define a binary search function only in this method frame
-        # search the frame whose timestamp is closest to the camera frame
-        # call get_sensor_frames_per_keyframe for each radar channel
-        
-        sample_token = camera_sample_data['sample_token']
-        camera_channel = camera_sample_data['channel']
-        camera_timestamp = camera_sample_data['timestamp']
-        if sensor_type == 'radar':
-            sensor_channels = CAM2RADARS[camera_channel]
-        elif sensor_type == 'lidar':
-            sensor_channels = ['LIDAR_TOP']
-
-        def match(frames, target_timestamp):
-            """Returns the index of the frame closest to the target_timestamp"""
-
-            tss = [frame['timestamp'] for frame in frames]
-
-            idx = bisect.bisect_left(tss, target_timestamp)
-
-            if idx == 0:
-                return idx
-            elif idx == len(tss):
-                return idx-1
-            
-            return np.argmin(
-                    [target_timestamp - tss[idx-1], tss[idx] - target_timestamp]
-                    )
-
-        matched_frames = []
-
-        for sensor_ch in sensor_channels:
-            sensor_frames = self.get_sensor_frames_per_keyframe(
-                    sample_token, sensor_ch)
-            matched_idx = match(sensor_frames, camera_timestamp)
-            matched_frames.append(sensor_frames[matched_idx])
-        return matched_frames
-
-    def get_sensor_frames_per_keyframe(self, sample_token, sensor):
-        """
-        """
-        # obtain the refrence keyframe
-        keyframe = self.nusc.get('sample', sample_token)
-
-        # collecting sample_data frames synchronized by the keyframe
-        sample = self.nusc.get('sample_data', keyframe['data'][sensor])
-        assert sample['is_key_frame']
-
-        sensor_frames = [sample]
-        while sample['next']:
-            sample = self.nusc.get('sample_data', sample['next'])
-            if not sample['is_key_frame']:
-                sensor_frames.append(sample)
-            else:
-                break
-
-        return sensor_frames
-        
-
-
-
 

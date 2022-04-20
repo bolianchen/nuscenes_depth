@@ -5,6 +5,13 @@ import cv2
 
 from PIL import Image
 
+def normalize_image(x):
+    """Rescale image pixels to span range [0, 1]
+    """
+    ma = float(x.max().cpu().data)
+    mi = float(x.min().cpu().data)
+    d = ma - mi if ma != mi else 1e5
+    return (x - mi) / d
 
 def image_resize(image, target_h, target_w, shift_h, shift_w,
                  inter = cv2.INTER_AREA):

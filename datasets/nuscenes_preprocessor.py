@@ -82,8 +82,8 @@ class NuScenesIterator:
 
         point_cloud_uv = self.nusc_proc.get_proj_dist_sensor(camera_token,
                 sensor_type=self.fused_dist_sensor)
-        point_cloud_uv = self.nusc_proc.adjust_cloud_uv(self.width, self.height,
-                point_cloud_uv, ratio, du, dv)
+        point_cloud_uv = self.nusc_proc.adjust_cloud_uv(point_cloud_uv, 
+                self.width, self.height, ratio, du, dv)
         self.idx += 1
 
         return img, point_cloud_uv
@@ -347,7 +347,7 @@ class NuScenesProcessor:
 
         return point_cloud_uv
 
-    def adjust_cloud_uv(self, width, height, point_cloud_uv, ratio,
+    def adjust_cloud_uv(self, point_cloud_uv, width, height, ratio,
             delta_u, delta_v):
         """Obtains a depth map whose shape is consistent with the resized images
         Args:
@@ -400,10 +400,14 @@ class NuScenesProcessor:
                 return idx
             elif idx == len(tss):
                 return idx-1
-            
-            return np.argmin(
+
+            select = np.argmin(
                     [target_timestamp - tss[idx-1], tss[idx] - target_timestamp]
                     )
+            if select == 0:
+                return idx-1
+            else:
+                return idx
 
         matched_frames = []
 
@@ -499,6 +503,17 @@ class NuScenesProcessor:
                   np.clip(xs.astype(np.int), 0, img_shape[1]-1)] = zs
 
         return depth_map
+
+    def get_cam_intrinsics(self, token):
+        """Returns 3x3 camera matrix according to the given token
+        Args:
+            token(str): a camera sample_data token
+        """
+        sample_data = self.nusc.get('sample_data', token)
+        camera_calibration = self.nusc.get(
+                'calibrated_sensor', sample_data['calibrated_sensor_token'])
+        K = np.array(camera_calibration['camera_intrinsic'])
+        return np.float32(K)
 
     def get_2d_bboxes(self, cam_token, visibilities=['', '1', '2', '3', '4']):
         """

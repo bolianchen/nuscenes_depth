@@ -91,4 +91,7 @@ class SceneViewerOptions:
     def parse(self):
         self.options = self.parser.parse_args()
         self.options.project_dir = project_dir
+        self.options.data_path = os.path.abspath(
+                os.path.expanduser(self.options.data_path)
+                )
         return self.options
