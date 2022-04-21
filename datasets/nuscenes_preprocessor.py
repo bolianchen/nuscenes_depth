@@ -22,9 +22,8 @@ from utils import image_resize
 class NuScenesIterator:
     """An iterator to iterate over the selcted scenes"""
 
-    def __init__(self, version, data_root, frame_ids, width, height, 
-            speed_limits=[0.0, np.inf], cameras=['CAM_FRONT'],
-            scene_names=[], use_keyframe=False, fused_dist_sensor='radar',
+    def __init__(self, nusc_processor, width, height, cameras=['CAM_FRONT'],
+            scene_names=[], fused_dist_sensor='radar',
             visibilities=['', '1', '2', '3', '4']):
         """Constructor of the iterator
         Args:
@@ -33,22 +32,22 @@ class NuScenesIterator:
             width: target width of the output image
             height: target height of the output image
         """
-        self.nusc_proc = NuScenesProcessor(version, data_root, frame_ids,
-                speed_limits=speed_limits, cameras=cameras,
-                use_keyframe=use_keyframe)
+        self.nusc_proc = nusc_processor
         self.width, self.height = width, height
-        self.use_keyframe = use_keyframe
         self.fused_dist_sensor = fused_dist_sensor
         self.visibilities = visibilities
 
         if len(scene_names) == 0:
-            if version != 'v1.0-test':
+            if self.nusc_proc.get_version() != 'v1.0-test':
                 self.all_camera_tokens = sum([
-                    self.nusc_proc.gen_tokens(is_train=True),
-                    self.nusc_proc.gen_tokens(is_train=False)], [])
+                    self.nusc_proc.gen_tokens(
+                        is_train=True, specified_cams=cameras),
+                    self.nusc_proc.gen_tokens(
+                        is_train=False, specified_cams=cameras)], [])
             else:
                 self.all_camera_tokens = sum([
-                    self.nusc_proc.gen_tokens(is_train=False)], [])
+                    self.nusc_proc.gen_tokens(
+                        is_train=False, specified_cams=cameras)], [])
         else:
             scenes = self.nusc_proc.get_avail_scenes(scene_names)
             self.all_camera_tokens = []
@@ -74,7 +73,7 @@ class NuScenesIterator:
         # bad design - exposure of the data in self.nusc_proc
         camera_sample_data = self.nusc_proc.nusc.get('sample_data',
                 camera_token)
-        img_path = os.path.join(self.nusc_proc.data_root,
+        img_path = os.path.join(self.nusc_proc.get_data_root(),
                 camera_sample_data['filename'])
         img = pil_loader(img_path)
 
@@ -186,7 +185,7 @@ class NuScenesProcessor:
 
         return scenes
 
-    def gen_tokens(self, is_train=True):
+    def gen_tokens(self, is_train=True, specified_cams=[] ):
         """Generate a list of camera tokens according to the available splits
         """
         if self.version == 'v1.0-mini':
@@ -207,7 +206,12 @@ class NuScenesProcessor:
         all_tokens = []
         all_scenes = self.get_avail_scenes(split)
 
-        for camera in self.cameras:
+        if len(specified_cams) == 0:
+            cameras = self.cameras
+        else:
+            cameras = specified_cams
+
+        for camera in cameras:
             for scene in all_scenes:
                 camera_frames = self.get_camera_sample_data(
                         scene, camera, use_keyframe=self.use_keyframe)
@@ -582,6 +586,15 @@ class NuScenesProcessor:
             repro_recs.append(repro_rec)
 
         return repro_recs
+
+    def get_data_root(self):
+        return self.data_root
+
+    def get_nuscenes_obj(self):
+        return self.nusc
+
+    def get_version(self):
+        return self.version
 
 if __name__ == '__main__':
     version = 'v1.0-mini'

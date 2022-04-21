@@ -31,7 +31,7 @@ class NuScenesDataset(MonoDataset):
         """
         args = list(args)
         self.nusc_proc = args[1]
-        self.nusc = self.nusc_proc.nusc
+        self.nusc = self.nusc_proc.get_nuscenes_obj()
         args[1] = self.nusc_proc.gen_tokens(is_train=kwargs['is_train'])
 
         super(NuScenesDataset, self).__init__(*args, **kwargs)
