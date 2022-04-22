@@ -41,7 +41,7 @@ def main(opts):
 
 def log(batch, opts, step):
     """Log information of the batch into tensorboard"""
-    writer = SummaryWriter('opts.log_dir')
+    writer = SummaryWriter(f'./{opts.log_dir}')
     s = 0 # only use the scale 0
 
     for j in range(opts.batch_size):  # write a maxmimum of four images
