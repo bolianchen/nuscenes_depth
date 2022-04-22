@@ -1,4 +1,3 @@
-# All rights reserved.
 
 from __future__ import absolute_import, division, print_function
 
@@ -19,6 +18,15 @@ class SceneViewerOptions:
                                  default="nuscenes_data",
                                  help="absolute or relative path to the "
                                       "root data folders") 
+
+        self.parser.add_argument("--save_dir",
+                                 type=str,
+                                 default="",
+                                 help="subfolder name in the project folder "
+                                      "to save the rendered scene images "
+                                      "leave it empty to diplay images in "
+                                      "real time") 
+
         self.parser.add_argument("--height",
                                  type=int,
                                  help="input image height",
@@ -34,7 +42,7 @@ class SceneViewerOptions:
                                  default=[0, -1, 1])
 
         ## POSSIBLY MOBILE MASKS options
-        MASK = ['none', 'mono', 'color']
+        MASK = ["none", "mono", "color"]
         self.parser.add_argument("--seg_mask",
                                  type=str,
                                  choices=MASK,
@@ -47,36 +55,41 @@ class SceneViewerOptions:
                                  )
 
         ## OPTIONS for SPECIFIC DATASET PREPROCESSING for NUSCENES DATASETS
-        self.parser.add_argument('--nuscenes_version',
+        self.parser.add_argument("--nuscenes_version",
                             type=str,
-                            default ='v1.0-mini',
-                            choices=['v1.0-mini', 'v1.0-trainval', 'v1.0-test'],
-                            help='nuscenes dataset version')
-        self.parser.add_argument('--camera_channels',
-                            default =['CAM_FRONT'],
-                            nargs='+',
-                            help='selectable from CAM_FRONT, CAM_FRONT_LEFT, '
-                                 'CAM_FRONT_RIGHT, CAM_BACK, CAM_BACK_LEFT, '
-                                 'CAM_BACK_RIGHT')
+                            default ="v1.0-mini",
+                            choices=["v1.0-mini", "v1.0-trainval", "v1.0-test"],
+                            help="nuscenes dataset version")
+        self.parser.add_argument("--camera_channels",
+                            default =["CAM_FRONT"],
+                            nargs="+",
+                            help="selectable from CAM_FRONT, CAM_FRONT_LEFT, "
+                                 "CAM_FRONT_RIGHT, CAM_BACK, CAM_BACK_LEFT, "
+                                 "CAM_BACK_RIGHT")
         self.parser.add_argument("--scene_names",
                                  nargs="+",
                                  type=str,
                                  default=[],
-                                 help="scenes to iterate over"
-                                      "use all if it is a empty list")
+                                 help="scenes to iterate over; "
+                                      "leave the list empty to iterate all "
+                                      "available scenes")
         self.parser.add_argument("--use_keyframe",
                                  action="store_true",
-                                 help="whether to only keyframes")
+                                 help="whether to use keyframes "
+                                      "there are two categories: "
+                                      "1. sample_data frames in 12Hz (default) "
+                                      "2. keyframes in 2Hz")
         self.parser.add_argument("--fused_dist_sensor",
                                  type=str,
                                  default="radar",
                                  help="which distance sensor to be fused"
                                       "with camera image")
-        self.parser.add_argument('--speed_limits',
+        self.parser.add_argument("--speed_limits",
                             default=[0, np.inf],
                             type=float,
-                            nargs='+',
-                            help='lower and upper speed limits to screen samples')
+                            nargs="+",
+                            help="lower and upper speed limits to screen "
+                                 "samples")
 
         # OPTIONS to FILTER RADAR and LIDAR GROUND-TRUTH
         self.parser.add_argument("--min_depth",
@@ -94,4 +107,9 @@ class SceneViewerOptions:
         self.options.data_path = os.path.abspath(
                 os.path.expanduser(self.options.data_path)
                 )
+
+        if self.options.save_dir:
+            if not os.path.exists(self.options.save_dir):
+                os.mkdir(self.options.save_dir)
+
         return self.options

@@ -18,14 +18,14 @@ class SimulateDataLoaderOptions:
                                  type=str,
                                  default="nuscenes_data",
                                  help="absolute or relative path to the "
-                                      "root data folders") # mixed datasets
+                                      "root data folders")
 
         # OPTIONS for GENERAL DATASET PREPROCESSING for ALL DATASETS
         self.parser.add_argument("--dataset",
                                  help="dataset to load",
                                  default="nuscenes",
                                  choices=["nuscenes"])
-        self.parser.add_argument("--subset_ratio", # mixed datasets
+        self.parser.add_argument("--subset_ratio",
                                  type=float,
                                  default=1.0,
                                  help="random sample a subset of the dataset") 
@@ -60,8 +60,8 @@ class SimulateDataLoaderOptions:
         self.parser.add_argument("--do_crop",
                                  help="whether to crop image height",
                                  action="store_true")
-        self.parser.add_argument("--crop_bound", # mixed datasets
-                                 type=float, nargs='+',
+        self.parser.add_argument("--crop_bound",
+                                 type=float, nargs="+",
                                  help="for example, crop_bound=[0.0, 0.8]"
                                       " means the bottom 20% of the image will"
                                       " never be cropped. If only one value is"
@@ -69,11 +69,11 @@ class SimulateDataLoaderOptions:
                                       " according to the ratio",
                                  default=[0.0, 1.0])
         ## POSSIBLY MOBILE MASKS options
-        MASK = ['none', 'mono', 'color']
+        MASK = ["none", "mono", "color"]
         self.parser.add_argument("--seg_mask",
                                  type=str,
                                  choices=MASK,
-                                 default='none',
+                                 default="none",
                                  help="whether to use segmetation mask")
         self.parser.add_argument("--MIN_OBJECT_AREA",
                                  type=int,
@@ -95,25 +95,28 @@ class SimulateDataLoaderOptions:
                                       " objects with 100%")
 
         ## OPTIONS for SPECIFIC DATASET PREPROCESSING for NUSCENES DATASETS
-        self.parser.add_argument('--nuscenes_version',
+        self.parser.add_argument("--nuscenes_version",
                             type=str,
-                            default ='v1.0-mini',
-                            choices=['v1.0-mini', 'v1.0-trainval', 'v1.0-test'],
-                            help='nuscenes dataset version')
-        self.parser.add_argument('--camera_channels',
-                            default =['CAM_FRONT'],
-                            nargs='+',
-                            help='selectable from CAM_FRONT, CAM_FRONT_LEFT, '
-                                 'CAM_FRONT_RIGHT, CAM_BACK, CAM_BACK_LEFT, '
-                                 'CAM_BACK_RIGHT')
+                            default ="v1.0-mini",
+                            choices=["v1.0-mini", "v1.0-trainval", "v1.0-test"],
+                            help="nuscenes dataset version")
+        self.parser.add_argument("--camera_channels",
+                            default =["CAM_FRONT"],
+                            nargs="+",
+                            help="selectable from CAM_FRONT, CAM_FRONT_LEFT, "
+                                 "CAM_FRONT_RIGHT, CAM_BACK, CAM_BACK_LEFT, "
+                                 "CAM_BACK_RIGHT")
         self.parser.add_argument("--use_keyframe",
                                  action="store_true",
-                                 help="whether to only keyframes")
-        self.parser.add_argument('--speed_limits',
+                                 help="whether to use keyframes "
+                                      "there are two categories: "
+                                      "1. sample_data frames in 12Hz (default) "
+                                      "2. keyframes in 2Hz")
+        self.parser.add_argument("--speed_limits",
                             default=[0, np.inf],
                             type=float,
-                            nargs='+',
-                            help='lower and upper speed limits to screen samples')
+                            nargs="+",
+                            help="lower and upper speed limits to screen samples")
         self.parser.add_argument("--use_radar",
                                  help="if set, uses radar data for training",
                                  action="store_true")
@@ -142,6 +145,11 @@ class SimulateDataLoaderOptions:
                                  default=100.0)
 
         # TENSORBOARD LOG OPTIONS
+        self.parser.add_argument("--log_dir",
+                                 type=str,
+                                 default="log",
+                                 help="subfolder name in the project folder "
+                                      "to save the tensorboard results") 
         self.parser.add_argument("--log_steps",
                                  type=int,
                                  help="number of minibatches to log",
@@ -153,4 +161,6 @@ class SimulateDataLoaderOptions:
         self.options.data_path = os.path.abspath(
                 os.path.expanduser(self.options.data_path)
                 )
+        if not os.path.exists(self.options.log_dir):
+            os.mkdir(self.options.log_dir)
         return self.options

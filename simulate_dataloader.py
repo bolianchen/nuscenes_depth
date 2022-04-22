@@ -10,6 +10,7 @@ def main(opts):
     """Store a batch of dataloader output to tensorboard
     """
 
+    # initialize a nuscenes preprocessor
     nusc_proc = NuScenesProcessor(
             opts.nuscenes_version, opts.data_path, opts.frame_ids,
             speed_limits=opts.speed_limits, cameras=opts.camera_channels,
@@ -40,7 +41,7 @@ def main(opts):
 
 def log(batch, opts, step):
     """Log information of the batch into tensorboard"""
-    writer = SummaryWriter('./log')
+    writer = SummaryWriter('opts.log_dir')
     s = 0 # only use the scale 0
 
     for j in range(opts.batch_size):  # write a maxmimum of four images
