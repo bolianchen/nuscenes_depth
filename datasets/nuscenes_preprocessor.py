@@ -228,6 +228,48 @@ class NuScenesProcessor:
 
         return all_tokens
 
+    def get_adjacent_token(self, token, relative_idx):
+        """Returns the sample_data token of a earlier or later frame
+        Args:
+            token(str): a sample_data token
+            relative_idx(int):
+        """
+
+        if relative_idx == 0:
+            return token
+
+        if relative_idx > 0:
+            action = 'next'
+        else:
+            action = 'prev'
+
+        gap = abs(relative_idx)
+
+        if self.use_keyframe:
+            sample_data = self.nusc.get('sample_data', token)
+            sensor_token = self.nusc.get('calibrated_sensor',
+                    sample_data['calibrated_sensor_token'])['sensor_token']
+            sensor_channel = self.nusc.get('sensor', sensor_token)['channel']
+            keyframe_token = sample_data['sample_token']
+            while gap != 0:
+                try:
+                    keyframe_token = self.nusc.get(
+                            'sample', keyframe_token)[action]
+                except:
+                    return False
+                gap -= 1
+            token = self.nusc.get('sample',
+                    keyframe_token)['data'][sensor_channel]
+        else:
+            while gap != 0:
+                try:
+                    token = self.nusc.get('sample_data', token)[action]
+                except:
+                    return False
+                gap -= 1
+
+        return token
+
     def gen_2d_bboxes(self, cam_token):
         """Generate the coordinates of 2d bboxes for a keyframe
         Args:
@@ -276,38 +318,51 @@ class NuScenesProcessor:
 
         sample_token = scene['first_sample_token']
         keyframe = self.nusc.get('sample', sample_token)
-
-        # get first sample token for the specified camera
-        if self.use_keyframe:
-            sample = keyframe
-        else:
-            sample = self.nusc.get('sample_data', keyframe['data'][camera])
-        sample_exist = True
-
         all_sample_data = []
 
-        while sample_exist:
-            if self.check_frame_validity(sample, scene_veh_speed,
-                    use_keyframe=self.use_keyframe):
+        # get first sample token for the specified camera
+        # iterate all the sample_data frames or sample frames(use_keyframe True)
+        # collect the metadata of the corresponding sample_data frames
 
-                if self.use_keyframe:
+        # keyframe
+        if self.use_keyframe:
+            while True:
+                if self.check_frame_validity(keyframe, scene_veh_speed,
+                        use_keyframe=self.use_keyframe):
+
                     sample_data = self.nusc.get('sample_data',
-                                                sample['data'][camera])
-                else:
-                    sample_data = sample
+                            keyframe['data'][camera])
 
-                if token_only:
-                    all_sample_data.append(sample_data['token'])
-                else:
-                    all_sample_data.append(sample_data)
+                    if token_only:
+                        all_sample_data.append(sample_data['token'])
+                    else:
+                        all_sample_data.append(sample_data)
 
-            sample_exist = (sample['next'] != '')
-
-            if sample_exist:
-                if self.use_keyframe:
-                    sample = self.nusc.get('sample', sample['next'])
+                if keyframe['next'] == '':
+                    break
                 else:
-                    sample = self.nusc.get('sample_data', sample['next'])
+                    # update the metadata for the keyframe
+                    keyframe = self.nusc.get('sample', keyframe['next'])
+
+        # non-keyframe
+        else:
+            sample_data = self.nusc.get('sample_data', keyframe['data'][camera])
+
+            while True:
+                if self.check_frame_validity(sample_data, scene_veh_speed,
+                        use_keyframe=self.use_keyframe):
+
+                    if token_only:
+                        all_sample_data.append(sample_data['token'])
+                    else:
+                        all_sample_data.append(sample_data)
+
+                if sample_data['next'] == '':
+                    break
+                else:
+                    # update the metadata for the sample_data frame
+                    sample_data = self.nusc.get(
+                            'sample_data', sample_data['next'])
 
         return all_sample_data
 
@@ -520,7 +575,7 @@ class NuScenesProcessor:
             scene_veh_speed: the speed curve of the scene of the sample
         """
 
-        # Screen out samples not meeting the speed requirement
+        # Screen out samples not meeting the speed requirement 
         actual_speed = np.interp(sample['timestamp'],
                                  scene_veh_speed[0],
                                  scene_veh_speed[1])

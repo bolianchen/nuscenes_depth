@@ -16,11 +16,8 @@ import torch
 from torchvision import transforms
 
 # TODO:
-#    1. feed a NuScenes instance to the constructor of NuScenesDataset
 #    2. make masks with bbox annotations
-#    3. make iterators in NuScenesProcessor
 #    4. screen out daytime, nighttime, all
-# mapping of each camera to the radars having overlap of FOV with it
 
 class NuScenesDataset(MonoDataset):
     """ nuScenes dataset loader """
@@ -112,26 +109,20 @@ class NuScenesDataset(MonoDataset):
 
     def get_color(self, token, frame_id, do_flip, crop_offset=-3):
         """Returns an resized RGB image and its camera sample_data token"""
-        if frame_id >= 0:
-            action = 'next'
-        else:
-            action = 'prev'
-
-        num_tracing = abs(frame_id)
-
-        while num_tracing > 0:
-            token = self.nusc.get('sample_data', token)[action]
-            num_tracing -= 1
-
+        # get the token of the adjacent frame
+        token = self.nusc_proc.get_adjacent_token(token, frame_id)
         sample_data = self.nusc.get('sample_data', token)
         img_path = os.path.join(self.data_path, sample_data['filename'])
-
         return token, self.get_image(self.loader(img_path), do_flip, crop_offset)
+
+    def get_mask(self, token, frame_id, do_flip, crop_offset=-3):
+        """
+        """
+        raise NotImplementedError
 
     def load_intrinsics(self, token):
         """Returns a 4x4 camera intrinsics matrix corresponding to the token
         """
-
         # 3x3 camera matrix
         K = self.nusc_proc.get_cam_intrinsics(token)
         K = np.concatenate( (K, np.array([[0,0,0]]).T), axis = 1 )
