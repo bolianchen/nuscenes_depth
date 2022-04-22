@@ -23,7 +23,7 @@ class NuScenesIterator:
     """An iterator to iterate over the selcted scenes"""
 
     def __init__(self, nusc_processor, width, height, cameras=['CAM_FRONT'],
-            scene_names=[], fused_dist_sensor='radar',
+            scene_names=[], fused_dist_sensor='radar', show_bboxes=False,
             visibilities=['', '1', '2', '3', '4']):
         """Constructor of the iterator
         Args:
@@ -35,8 +35,10 @@ class NuScenesIterator:
         self.nusc_proc = nusc_processor
         self.width, self.height = width, height
         self.fused_dist_sensor = fused_dist_sensor
+        self.show_bboxes = show_bboxes
         self.visibilities = visibilities
 
+        # includes all the scenes
         if len(scene_names) == 0:
             if self.nusc_proc.get_version() != 'v1.0-test':
                 self.all_camera_tokens = sum([
@@ -69,10 +71,9 @@ class NuScenesIterator:
             raise StopIteration
 
         camera_token = self.all_camera_tokens[self.idx]
-        #bboxes = self.nusc_proc.get_2d_bboxes(camera_token)
-        # bad design - exposure of the data in self.nusc_proc
         camera_sample_data = self.nusc_proc.nusc.get('sample_data',
                 camera_token)
+
         img_path = os.path.join(self.nusc_proc.get_data_root(),
                 camera_sample_data['filename'])
         img = pil_loader(img_path)
@@ -83,9 +84,17 @@ class NuScenesIterator:
                 sensor_type=self.fused_dist_sensor)
         point_cloud_uv = self.nusc_proc.adjust_cloud_uv(point_cloud_uv, 
                 self.width, self.height, ratio, du, dv)
+
+        if self.show_bboxes:
+            bboxes = self.nusc_proc.gen_2d_bboxes(camera_token)
+            bboxes = self.nusc_proc.adjust_2d_bboxes(bboxes,
+                    self.width, self.height, ratio, du, dv)
+        else:
+            bboxes = []
+
         self.idx += 1
 
-        return img, point_cloud_uv
+        return img, point_cloud_uv, bboxes
         
 class NuScenesProcessor:
     """ nuScenes Dataset Preprocessor
@@ -214,13 +223,40 @@ class NuScenesProcessor:
         for camera in cameras:
             for scene in all_scenes:
                 camera_frames = self.get_camera_sample_data(
-                        scene, camera, use_keyframe=self.use_keyframe)
+                        scene, camera )
                 all_tokens.extend(camera_frames)
 
         return all_tokens
 
-    def get_camera_sample_data(self, scene, camera, use_keyframe=False,
-            token_only=True):
+    def gen_2d_bboxes(self, cam_token):
+        """Generate the coordinates of 2d bboxes for a keyframe
+        Args:
+            cam_token(str): a camera keyframe token
+        """
+        try:
+            annots = self.get_2d_bboxes(cam_token)
+        except ValueError: # return an empty list for a non-keyframe
+            return []
+            
+        # list of [x_upleft, y_upleft, x_downright, y_downright]
+        coords = np.array([annot['bbox_corners'] for annot in annots])
+        return coords
+
+    def adjust_2d_bboxes(self, bboxes, width, height, ratio, du, dv):
+        """
+        """
+        if len(bboxes) == 0:
+            return []
+
+        bboxes = bboxes * ratio
+        bboxes[:,0] = np.clip(bboxes[:, 0] - du, 0, width-1)
+        bboxes[:,2] = np.clip(bboxes[:, 2] - du, 0, width-1)
+        bboxes[:,1] = np.clip(bboxes[:, 1] - dv, 0, height-1)
+        bboxes[:,3] = np.clip(bboxes[:, 3] - dv, 0, height-1)
+
+        return bboxes
+
+    def get_camera_sample_data(self, scene, camera, token_only=True):
         """Collects all valid sample_data of a camera in a scene
 
         validity check is conducted in the while loop, including:
@@ -242,7 +278,7 @@ class NuScenesProcessor:
         keyframe = self.nusc.get('sample', sample_token)
 
         # get first sample token for the specified camera
-        if use_keyframe:
+        if self.use_keyframe:
             sample = keyframe
         else:
             sample = self.nusc.get('sample_data', keyframe['data'][camera])
@@ -252,9 +288,9 @@ class NuScenesProcessor:
 
         while sample_exist:
             if self.check_frame_validity(sample, scene_veh_speed,
-                    use_keyframe=use_keyframe):
+                    use_keyframe=self.use_keyframe):
 
-                if use_keyframe:
+                if self.use_keyframe:
                     sample_data = self.nusc.get('sample_data',
                                                 sample['data'][camera])
                 else:
@@ -268,7 +304,7 @@ class NuScenesProcessor:
             sample_exist = (sample['next'] != '')
 
             if sample_exist:
-                if use_keyframe:
+                if self.use_keyframe:
                     sample = self.nusc.get('sample', sample['next'])
                 else:
                     sample = self.nusc.get('sample_data', sample['next'])
@@ -520,11 +556,17 @@ class NuScenesProcessor:
         return np.float32(K)
 
     def get_2d_bboxes(self, cam_token, visibilities=['', '1', '2', '3', '4']):
-        """
-        Get the 2D annotation records for a given `sample_data_token`.
-        :param sample_data_token: Sample data token belonging to a camera keyframe.
-        :param visibilities: Visibility filter.
-        :return: List of 2D annotation record that belongs to the input `sample_data_token`
+        """ Get the 2D annotation records for a given `sample_data_token.
+
+        This is refactored from a module named export_2d_annotations_as_json.py 
+	from the official devkit. There are local variables in the original
+        function that cannot be changed after importing it.
+
+	Args:
+            cam_token: Sample data token belonging to a camera keyframe.
+            visibilities: Visibility filter.
+        Returns:
+            List of 2D annotation record that belongs to the input `sample_data_token`
         """
 
         # Get the sample data and the sample corresponding to that sample data.

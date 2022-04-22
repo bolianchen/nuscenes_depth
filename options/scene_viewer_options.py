@@ -79,6 +79,13 @@ class SceneViewerOptions:
                                       "there are two categories: "
                                       "1. sample_data frames in 12Hz (default) "
                                       "2. keyframes in 2Hz")
+        self.parser.add_argument("--show_bboxes",
+                                 action="store_true",
+                                 help="set true to show 2d bboxes "
+                                      "if use_keyframe is False, 2d bboxes "
+                                      "would not appear and disapper since "
+                                      "bbox annotations only available on "
+                                      "keyframes")
         self.parser.add_argument("--fused_dist_sensor",
                                  type=str,
                                  default="radar",

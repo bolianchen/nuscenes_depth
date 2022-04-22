@@ -1,7 +1,9 @@
 import os
+import numpy as np
 from options import SceneViewerOptions
 from datasets import NuScenesIterator, NuScenesProcessor
 from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
 
 def main(opts):
     """Render the camera images fused with the specified distance sensor
@@ -29,15 +31,24 @@ def display_single_cam(opts, nusc_processor, FPS):
         nusc_processor, opts.width, opts.height,
         cameras=opts.camera_channels, 
         scene_names=opts.scene_names,
-        fused_dist_sensor=opts.fused_dist_sensor)
+        fused_dist_sensor=opts.fused_dist_sensor,
+        show_bboxes=opts.show_bboxes)
     fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
     plt.tight_layout()
-    for frame_id, (img, points) in enumerate(nusc_iterator):
+    for frame_id, (img, points, bboxes) in enumerate(nusc_iterator):
+        rects = []
+        for bbox in bboxes:
+            rects.append(
+                    Rectangle(bbox[2:], bbox[0]-bbox[2], bbox[1]-bbox[3],
+                        linewidth=1, edgecolor='r', facecolor='none')
+                    )
+        
         ax.cla()
         ax.set_axis_off()
         ax.imshow(img)
         ax.scatter(points[0,:], points[1,:],
                 c=points[2,:], s=5)
+        [ax.add_patch(rect) for rect in rects]
 
         if opts.save_dir: # save images in the specified folder
             plt.savefig(
@@ -79,7 +90,8 @@ def display_multi_cams(opts, nusc_processor, FPS):
                     nusc_processor, opts.width, opts.height,
                     cameras=[camera_channel], 
                     scene_names=opts.scene_names,
-                    fused_dist_sensor=opts.fused_dist_sensor)
+                    fused_dist_sensor=opts.fused_dist_sensor,
+                    show_bboxes=opts.show_bboxes)
                 )
 
     frame_id = 0
@@ -90,16 +102,23 @@ def display_multi_cams(opts, nusc_processor, FPS):
         else:
             [axes[i][j].cla() for i in range(num_rows) for j in range(num_cols)]
         
-        for idx, (img, points) in enumerate(data_pairs):
+        for idx, (img, points, bboxes) in enumerate(data_pairs):
             if num_rows == 1:
                 ax = axes[idx%num_cols]
             else:
                 ax = axes[idx//num_cols, idx%num_cols]
+            rects = []
+            for bbox in bboxes:
+                rects.append(
+                        Rectangle(bbox[2:], bbox[0]-bbox[2], bbox[1]-bbox[3],
+                            linewidth=1, edgecolor='r', facecolor='none')
+                        )
             ax.set_axis_off()
             ax.imshow(img)
             ax.scatter(points[0,:], points[1,:],
                     c=points[2,:], s=5)
             ax.set_title(opts.camera_channels[idx])
+            [ax.add_patch(rect) for rect in rects]
 
         if opts.save_dir: # save images in the specified folder
             plt.savefig(
