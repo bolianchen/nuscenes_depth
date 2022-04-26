@@ -123,16 +123,15 @@ class NuScenesDataset(MonoDataset):
     def get_mask(self, token, frame_id, do_flip, crop_offset=-3):
         """Return an Resized segmentation mask
         """
-        if not self.nusc_proc.use_keyframe():
-            # assign an invalid token to get a whole black mask
-            token = ''
-        else:
-            # duplicate the central keyframe mask for its adjacent
-            # non-keyframes
-            if not self.enforce_adj_nonkeyframe:
-                token = self.nusc_proc.get_adjacent_token(token, frame_id)
+        # duplicate the central keyframe mask for its adjacent
+        # non-keyframes
+        if not self.enforce_adj_nonkeyframe:
+            token = self.nusc_proc.get_adjacent_token(token, frame_id)
+
         return self.get_image(
-                self.nusc_proc.gen_seg_mask(token), do_flip, crop_offset)
+                self.nusc_proc.gen_seg_mask(
+                    token, force_black=self.nusc_proc.not_use_keyframe),
+                do_flip, crop_offset)
 
     def load_intrinsics(self, token):
         """Returns a 4x4 camera intrinsics matrix corresponding to the token

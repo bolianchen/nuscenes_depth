@@ -17,9 +17,6 @@ from PIL import Image
 from .mono_dataset import pil_loader
 from utils import image_resize
 
-# TODO:
-#     replace assertions
-
 class NuScenesIterator:
     """An iterator to iterate over the selcted scenes"""
 
@@ -319,7 +316,7 @@ class NuScenesProcessor:
 
         return bboxes
 
-    def gen_seg_mask(self, cam_token):
+    def gen_seg_mask(self, cam_token, force_black=False):
         """Returns the mono segmentation mask
 
         The returned mask would be full black for a non-keyframe cam_token
@@ -328,17 +325,19 @@ class NuScenesProcessor:
         camera_sample_data = self.nusc.get('sample_data', cam_token)
         img_height = camera_sample_data['height']
         img_width = camera_sample_data['width']
-        # round the coordinates to integers
-        bboxes = np.rint(self.gen_2d_bboxes(cam_token)).astype(np.int32)
-        bboxes = self.adjust_2d_bboxes(bboxes, img_width, img_height, 1, 0, 0)
 
         # initialize the mask as black
         mask = np.zeros((img_height, img_width), dtype=np.uint8)
-        # fill the white color onto the regions of the bboxes
-        for x1, y1, x2, y2 in bboxes:
-            mask[y1:y2,x1:x2] = 255
-        mask = Image.fromarray(mask)
-        return mask
+
+        if not force_black:
+            # round the coordinates to integers
+            bboxes = np.rint(self.gen_2d_bboxes(cam_token)).astype(np.int32)
+            bboxes = self.adjust_2d_bboxes(bboxes, img_width, img_height, 1, 0, 0)
+            # fill the white color onto the regions of the bboxes
+            for x1, y1, x2, y2 in bboxes:
+                mask[y1:y2,x1:x2] = 255
+
+        return Image.fromarray(mask)
 
     def get_camera_sample_data(self, scene, camera, token_only=True):
         """Collects all valid sample_data of a camera in a scene
@@ -439,7 +438,6 @@ class NuScenesProcessor:
 
         # collecting sample_data frames synchronized by the keyframe
         sample = self.nusc.get('sample_data', keyframe['data'][sensor])
-        assert sample['is_key_frame']
 
         sensor_frames = [sample]
         while sample['next']:
@@ -462,7 +460,8 @@ class NuScenesProcessor:
         camera_channel = camera_sample_data['channel']
         img_height = camera_sample_data['height']
         img_width = camera_sample_data['width']
-        #find representative frames of the radars defined by CAM2RADARS
+
+        # find representative frames of the radars defined by CAM2RADARS
         matched_radar_frames = self.match_dist_sensor_frames(
                 camera_sample_data, sensor_type=sensor_type)
 
@@ -507,18 +506,20 @@ class NuScenesProcessor:
 
         return point_cloud_uv
 
-    def match_dist_sensor_frames(self, camera_sample_data, sensor_type='radar'):
+    def match_dist_sensor_frames(self, camera_sample_data,
+            sensor_type='radar'):
         """Returns the matched radar frames from the radar channels
+
         Args:
+            camera_sample_data(str): metadata of camera sample_data
             sensor_type(str): 'radar' or 'lidar'
-        Returns:
-            
         """
         # define a binary search function only in this method frame
         # search the frame whose timestamp is closest to the camera frame
         # call get_sensor_frames_per_keyframe for each radar channel
         
         sample_token = camera_sample_data['sample_token']
+        sample = self.nusc.get('sample', sample_token)
         camera_channel = camera_sample_data['channel']
         camera_timestamp = camera_sample_data['timestamp']
         if sensor_type == 'radar':
@@ -548,9 +549,18 @@ class NuScenesProcessor:
 
         matched_frames = []
 
+        # concat prev, current and next sample tokens
+        sample_tokens = [t for t in (sample['prev'], sample_token,
+            sample['next']) if t != '']
+
         for sensor_ch in sensor_channels:
-            sensor_frames = self.get_sensor_frames_per_keyframe(
-                    sample_token, sensor_ch)
+            # collect sensor frames of prev, current and next keyframes
+            sensor_frames = []
+            for st in sample_tokens:
+                sensor_frames.extend(
+                        self.get_sensor_frames_per_keyframe(
+                            st, sensor_ch)
+                        )
             matched_idx = match(sensor_frames, camera_timestamp)
             matched_frames.append(sensor_frames[matched_idx])
         return matched_frames
@@ -735,8 +745,8 @@ class NuScenesProcessor:
     def get_version(self):
         return self.version
 
-    def use_keyframe(self):
-        return self.use_keyframe
+    def not_use_keyframe(self):
+        return not self.use_keyframe
 
 
 
