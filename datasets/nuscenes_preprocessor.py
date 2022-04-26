@@ -13,6 +13,7 @@ from nuscenes.utils.geometry_utils import view_points
 from pyquaternion.quaternion import Quaternion
 
 from . import CAM2RADARS
+from PIL import Image
 from .mono_dataset import pil_loader
 from utils import image_resize
 
@@ -93,6 +94,8 @@ class NuScenesIterator:
             bboxes = []
 
         self.idx += 1
+
+        self.nusc_proc.gen_seg_mask(camera_token)
 
         return img, point_cloud_uv, bboxes
         
@@ -228,11 +231,18 @@ class NuScenesProcessor:
 
         return all_tokens
 
-    def get_adjacent_token(self, token, relative_idx):
+    def get_adjacent_token(self, token, relative_idx,
+            enforce_adj_nonkeyframe=False):
         """Returns the sample_data token of a earlier or later frame
         Args:
-            token(str): a sample_data token
-            relative_idx(int):
+            token(str): sample_data token of the central frame
+            relative_idx(int): frame difference relative to the central frame
+                               0 represents the central frame itself;
+                               +1 represents one frame later (i.e. next frame)
+                               -1 represents one frame earlier (i.e. prev frame)
+                               and so on...
+            enforce_adj_nonkeyframe(bool): enforces returning the sample_data
+                                           token of adjacent non-keyframes 
         """
 
         if relative_idx == 0:
@@ -245,7 +255,7 @@ class NuScenesProcessor:
 
         gap = abs(relative_idx)
 
-        if self.use_keyframe:
+        if self.use_keyframe and not enforce_adj_nonkeyframe:
             sample_data = self.nusc.get('sample_data', token)
             sensor_token = self.nusc.get('calibrated_sensor',
                     sample_data['calibrated_sensor_token'])['sensor_token']
@@ -260,7 +270,14 @@ class NuScenesProcessor:
                 gap -= 1
             token = self.nusc.get('sample',
                     keyframe_token)['data'][sensor_channel]
+
         else:
+
+            # if use_keyframe is True, token would be a keyframe token
+            # find its corresponding sample_data token
+            if self.use_keyframe and enforce_adj_nonkeyframe:
+                token = self.nusc.get('sample_data', token)['token']
+
             while gap != 0:
                 try:
                     token = self.nusc.get('sample_data', token)[action]
@@ -271,7 +288,11 @@ class NuScenesProcessor:
         return token
 
     def gen_2d_bboxes(self, cam_token):
-        """Generate the coordinates of 2d bboxes for a keyframe
+        """Generates a list of all the 2d bboxes coordinates for a frame
+
+        Labels of bboxes only available for cam_token at keyframes;
+        for a non-keyframe cam_token, an empty list would be returned
+
         Args:
             cam_token(str): a camera keyframe token
         """
@@ -297,6 +318,27 @@ class NuScenesProcessor:
         bboxes[:,3] = np.clip(bboxes[:, 3] - dv, 0, height-1)
 
         return bboxes
+
+    def gen_seg_mask(self, cam_token):
+        """Returns the mono segmentation mask
+
+        The returned mask would be full black for a non-keyframe cam_token
+        """
+
+        camera_sample_data = self.nusc.get('sample_data', cam_token)
+        img_height = camera_sample_data['height']
+        img_width = camera_sample_data['width']
+        # round the coordinates to integers
+        bboxes = np.rint(self.gen_2d_bboxes(cam_token)).astype(np.int32)
+        bboxes = self.adjust_2d_bboxes(bboxes, img_width, img_height, 1, 0, 0)
+
+        # initialize the mask as black
+        mask = np.zeros((img_height, img_width), dtype=np.uint8)
+        # fill the white color onto the regions of the bboxes
+        for x1, y1, x2, y2 in bboxes:
+            mask[y1:y2,x1:x2] = 255
+        mask = Image.fromarray(mask)
+        return mask
 
     def get_camera_sample_data(self, scene, camera, token_only=True):
         """Collects all valid sample_data of a camera in a scene
@@ -692,6 +734,11 @@ class NuScenesProcessor:
 
     def get_version(self):
         return self.version
+
+    def use_keyframe(self):
+        return self.use_keyframe
+
+
 
 if __name__ == '__main__':
     version = 'v1.0-mini'

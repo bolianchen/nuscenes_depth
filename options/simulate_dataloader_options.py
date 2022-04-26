@@ -112,6 +112,15 @@ class SimulateDataLoaderOptions:
                                       "there are two categories: "
                                       "1. sample_data frames in 12Hz (default) "
                                       "2. keyframes in 2Hz")
+        self.parser.add_argument("--enforce_adj_nonkeyframe",
+                                 action="store_true",
+                                 help="this option only effective when "
+                                      "use_keyframe is set True: "
+                                      "if True, adjacent non-keyframes would "
+                                      " be paired with the central keyframe "
+                                      "for image construction; "
+                                      "if False, all adjacent and central "
+                                      "frames would be keyframes")
         self.parser.add_argument("--speed_limits",
                             default=[0, np.inf],
                             type=float,

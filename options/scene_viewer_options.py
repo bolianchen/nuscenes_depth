@@ -82,10 +82,11 @@ class SceneViewerOptions:
         self.parser.add_argument("--show_bboxes",
                                  action="store_true",
                                  help="set true to show 2d bboxes "
-                                      "if use_keyframe is False, 2d bboxes "
-                                      "would not appear and disapper since "
-                                      "bbox annotations only available on "
-                                      "keyframes")
+                                      "set use_keyframe True to see bboxes "
+                                      "on every frame; otherwise, 2d bboxes "
+                                      "would not be shown on all frames "
+                                      "since bbox annotations only available "
+                                      "on keyframes")
         self.parser.add_argument("--fused_dist_sensor",
                                  type=str,
                                  default="radar",

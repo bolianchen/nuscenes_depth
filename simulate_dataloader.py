@@ -26,7 +26,8 @@ def main(opts):
             MIN_OBJECT_AREA=opts.MIN_OBJECT_AREA, boxify=opts.boxify,
             prob_to_mask_objects=opts.prob_to_mask_objects,
             use_radar=opts.use_radar, use_lidar=opts.use_lidar,
-            min_depth=opts.min_depth, max_depth=opts.max_depth)
+            min_depth=opts.min_depth, max_depth=opts.max_depth,
+            enforce_adj_nonkeyframe=opts.enforce_adj_nonkeyframe)
 
     dataloader = DataLoader(dataset, opts.batch_size, shuffle = True,
             num_workers=opts.num_workers, pin_memory=True, drop_last=True)
@@ -47,34 +48,45 @@ def log(batch, opts, step):
     for j in range(opts.batch_size):  # write a maxmimum of four images
         imgs = []
 
+        if opts.seg_mask != 'none':
+            masks = []
         if opts.use_radar:
             radars = []
         if opts.use_lidar:
             lidars = []
 
         for frame_id in sorted(opts.frame_ids):
-            imgs.append(batch[("color", frame_id, s)][j].data)
+            imgs.append(batch[('color', frame_id, s)][j].data)
+            if opts.seg_mask != 'none':
+                masks.append(batch[('mask', frame_id, s)][j].data)
+
             if opts.use_radar:
                 radars.append(
                         normalize_image(
-                            batch[("radar", frame_id, s)][j].unsqueeze(0))
+                            batch[('radar', frame_id, s)][j].unsqueeze(0))
                     )
             if opts.use_lidar:
                 lidars.append(
                         normalize_image(
-                            batch[("lidar", frame_id, s)][j].unsqueeze(0))
+                            batch[('lidar', frame_id, s)][j].unsqueeze(0))
                     )
 
         writer.add_image(
-            f"sensor_channels/id_{j}_image", torch.cat(imgs, axis=2), step)
+            f'sensor_channels/id_{j}_image', torch.cat(imgs, axis=2), step)
+
+        if opts.seg_mask != 'none':
+            writer.add_image(
+                    f'sensor_channels/id_{j}_segmask',
+                    torch.cat(masks, axis=2), step)
         if opts.use_radar:
             writer.add_image(
-                f"sensor_channels/id_{j}_radar", torch.cat(radars, axis=2), step)
+                f'sensor_channels/id_{j}_radar', torch.cat(radars, axis=2), step)
         if opts.use_lidar:
             writer.add_image(
-                f"sensor_channels/id_{j}_lidar", torch.cat(lidars, axis=2), step)
+                f'sensor_channels/id_{j}_lidar', torch.cat(lidars, axis=2), step)
 
     writer.close()
+
 
 if __name__ == '__main__':
     opts = SimulateDataLoaderOptions().parse()
