@@ -128,9 +128,10 @@ class NuScenesDataset(MonoDataset):
         if not self.enforce_adj_nonkeyframe:
             token = self.nusc_proc.get_adjacent_token(token, frame_id)
 
+
         return self.get_image(
                 self.nusc_proc.gen_seg_mask(
-                    token, force_black=self.nusc_proc.not_use_keyframe),
+                    token, force_black=self.nusc_proc.not_use_keyframe()),
                 do_flip, crop_offset)
 
     def load_intrinsics(self, token):

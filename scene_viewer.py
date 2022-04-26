@@ -10,7 +10,8 @@ def main(opts):
     """
     nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
             opts.frame_ids, speed_limits=opts.speed_limits,
-            cameras=opts.camera_channels, use_keyframe=opts.use_keyframe)
+            cameras=opts.camera_channels, use_keyframe=opts.use_keyframe,
+            stationary_filter=opts.stationary_filter)
 
     # display synchronized frames from multiple cameras
     if opts.use_keyframe and len(opts.camera_channels) > 1:
@@ -32,23 +33,13 @@ def display_single_cam(opts, nusc_processor, FPS):
         cameras=opts.camera_channels, 
         scene_names=opts.scene_names,
         fused_dist_sensor=opts.fused_dist_sensor,
-        show_bboxes=opts.show_bboxes)
+        show_bboxes=opts.show_bboxes, 
+        )
     fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
     plt.tight_layout()
-    for frame_id, (img, points, bboxes) in enumerate(nusc_iterator):
-        rects = []
-        for bbox in bboxes:
-            rects.append(
-                    Rectangle(bbox[2:], bbox[0]-bbox[2], bbox[1]-bbox[3],
-                        linewidth=1, edgecolor='r', facecolor='none')
-                    )
-        
-        ax.cla()
-        ax.set_axis_off()
-        ax.imshow(img)
-        ax.scatter(points[0,:], points[1,:],
-                c=points[2,:], s=5)
-        [ax.add_patch(rect) for rect in rects]
+    for frame_id, (img, points, bboxes, cats) in enumerate(nusc_iterator):
+
+        viz_helper(img, points, bboxes, cats, ax, opts)
 
         if opts.save_dir: # save images in the specified folder
             plt.savefig(
@@ -56,6 +47,7 @@ def display_single_cam(opts, nusc_processor, FPS):
                     )
         else: # display images in real time
             plt.pause(1/FPS)
+
 
 def display_multi_cams(opts, nusc_processor, FPS):
     """Displays or saves concatnated images of all the selected cameras
@@ -102,23 +94,13 @@ def display_multi_cams(opts, nusc_processor, FPS):
         else:
             [axes[i][j].cla() for i in range(num_rows) for j in range(num_cols)]
         
-        for idx, (img, points, bboxes) in enumerate(data_pairs):
+        for idx, (img, points, bboxes, cats) in enumerate(data_pairs):
             if num_rows == 1:
                 ax = axes[idx%num_cols]
             else:
                 ax = axes[idx//num_cols, idx%num_cols]
-            rects = []
-            for bbox in bboxes:
-                rects.append(
-                        Rectangle(bbox[2:], bbox[0]-bbox[2], bbox[1]-bbox[3],
-                            linewidth=1, edgecolor='r', facecolor='none')
-                        )
-            ax.set_axis_off()
-            ax.imshow(img)
-            ax.scatter(points[0,:], points[1,:],
-                    c=points[2,:], s=5)
-            ax.set_title(opts.camera_channels[idx])
-            [ax.add_patch(rect) for rect in rects]
+
+            viz_helper(img, points, bboxes, cats, ax, opts)
 
         if opts.save_dir: # save images in the specified folder
             plt.savefig(
@@ -128,6 +110,24 @@ def display_multi_cams(opts, nusc_processor, FPS):
             plt.pause(1/FPS)
 
         frame_id += 1
+
+def viz_helper(img, sensor_points, bboxes, cats, ax, opts):
+    ax.cla()
+    ax.set_axis_off()
+    ax.imshow(img)
+    ax.scatter(sensor_points[0,:], sensor_points[1,:],
+            c=sensor_points[2,:], s=5)
+    for bbox, cat in zip(bboxes, cats):
+        rect = Rectangle(
+                bbox[2:], bbox[0]-bbox[2], bbox[1]-bbox[3],
+                linewidth=1, edgecolor='r', facecolor='none')
+        ax.add_patch(rect)
+
+        if opts.show_bbox_cats:
+            rx, ry = rect.get_xy()
+            cx = rx + rect.get_width()/2.0
+            cy = ry + rect.get_height()/2.0
+            ax.annotate(cat, (cx, cy))
 
 if __name__ == '__main__':
     opts = SceneViewerOptions().parse()

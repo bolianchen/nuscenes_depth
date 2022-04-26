@@ -12,7 +12,7 @@ from nuscenes.scripts.export_2d_annotations_as_json import post_process_coords, 
 from nuscenes.utils.geometry_utils import view_points
 from pyquaternion.quaternion import Quaternion
 
-from . import CAM2RADARS
+from . import CAM2RADARS, STATIONARY_CATEGORIES
 from PIL import Image
 from .mono_dataset import pil_loader
 from utils import image_resize
@@ -84,17 +84,15 @@ class NuScenesIterator:
                 self.width, self.height, ratio, du, dv)
 
         if self.show_bboxes:
-            bboxes = self.nusc_proc.gen_2d_bboxes(camera_token)
+            bboxes, cats = self.nusc_proc.gen_2d_bboxes(camera_token)
             bboxes = self.nusc_proc.adjust_2d_bboxes(bboxes,
                     self.width, self.height, ratio, du, dv)
         else:
-            bboxes = []
+            bboxes, cats = [], []
 
         self.idx += 1
 
-        self.nusc_proc.gen_seg_mask(camera_token)
-
-        return img, point_cloud_uv, bboxes
+        return img, point_cloud_uv, bboxes, cats
         
 class NuScenesProcessor:
     """ nuScenes Dataset Preprocessor
@@ -110,7 +108,7 @@ class NuScenesProcessor:
 
     def __init__(self, version, data_root, frame_ids,
             speed_limits=[0.0, np.inf], cameras=['CAM_FRONT'],
-            use_keyframe=False):
+            use_keyframe=False, stationary_filter=False):
 
         self.version = version
         self.data_root = data_root
@@ -147,6 +145,7 @@ class NuScenesProcessor:
         self.cameras = cameras
 
         self.use_keyframe=use_keyframe
+        self.stationary_filter = stationary_filter
 
     def get_avail_scenes(self, scene_names):
         """Return the metadata of all the available scenes contained in split
@@ -296,11 +295,18 @@ class NuScenesProcessor:
         try:
             annots = self.get_2d_bboxes(cam_token)
         except ValueError: # return an empty list for a non-keyframe
-            return []
+            return [], []
             
+        if self.stationary_filter:
+            discarded_cats = STATIONARY_CATEGORIES
+        else:
+            discarded_cats = set()
         # list of [x_upleft, y_upleft, x_downright, y_downright]
-        coords = np.array([annot['bbox_corners'] for annot in annots])
-        return coords
+        coords = np.array([annot['bbox_corners'] for annot in annots
+            if annot['category_name'] not in discarded_cats])
+        cats = [annot['category_name'] for annot in annots
+                if annot['category_name'] not in discarded_cats]
+        return coords, cats
 
     def adjust_2d_bboxes(self, bboxes, width, height, ratio, du, dv):
         """
@@ -331,7 +337,7 @@ class NuScenesProcessor:
 
         if not force_black:
             # round the coordinates to integers
-            bboxes = np.rint(self.gen_2d_bboxes(cam_token)).astype(np.int32)
+            bboxes = np.rint(self.gen_2d_bboxes(cam_token)[0]).astype(np.int32)
             bboxes = self.adjust_2d_bboxes(bboxes, img_width, img_height, 1, 0, 0)
             # fill the white color onto the regions of the bboxes
             for x1, y1, x2, y2 in bboxes:

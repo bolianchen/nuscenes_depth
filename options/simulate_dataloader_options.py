@@ -121,6 +121,12 @@ class SimulateDataLoaderOptions:
                                       "for image construction; "
                                       "if False, all adjacent and central "
                                       "frames would be keyframes")
+        self.parser.add_argument("--stationary_filter",
+                                 action="store_true",
+                                 help="set True to filter out "
+                                      "non-movable objects including "
+                                      "traffic cones, barriers, "
+                                      "debris and bicycle racks")
         self.parser.add_argument("--speed_limits",
                             default=[0, np.inf],
                             type=float,

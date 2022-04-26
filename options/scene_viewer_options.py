@@ -87,17 +87,28 @@ class SceneViewerOptions:
                                       "would not be shown on all frames "
                                       "since bbox annotations only available "
                                       "on keyframes")
-        self.parser.add_argument("--fused_dist_sensor",
-                                 type=str,
-                                 default="radar",
-                                 help="which distance sensor to be fused"
-                                      "with camera image")
+        self.parser.add_argument("--show_bbox_cats",
+                                 action="store_true",
+                                 help="set True to display bbox categories; "
+                                      "this functionality is not optimized "
+                                      "and only for test")
+        self.parser.add_argument("--stationary_filter",
+                                 action="store_true",
+                                 help="set True to filter out "
+                                      "non-movable objects including "
+                                      "traffic cones, barriers, "
+                                      "debris and bicycle racks")
         self.parser.add_argument("--speed_limits",
                             default=[0, np.inf],
                             type=float,
                             nargs="+",
                             help="lower and upper speed limits to screen "
                                  "samples")
+        self.parser.add_argument("--fused_dist_sensor",
+                                 type=str,
+                                 default="radar",
+                                 help="which distance sensor to be fused"
+                                      "with camera image")
 
         # OPTIONS to FILTER RADAR and LIDAR GROUND-TRUTH
         self.parser.add_argument("--min_depth",
