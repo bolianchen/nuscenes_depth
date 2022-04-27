@@ -8,7 +8,7 @@ from datetime import datetime
 
 project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-class SceneViewerOptions:
+class ViewScenesOptions:
     def __init__(self):
         self.parser = argparse.ArgumentParser()
 
@@ -129,6 +129,6 @@ class SceneViewerOptions:
 
         if self.options.save_dir:
             if not os.path.exists(self.options.save_dir):
-                os.mkdir(self.options.save_dir)
+                os.makedirs(self.options.save_dir)
 
         return self.options

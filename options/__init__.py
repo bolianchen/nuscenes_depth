@@ -1,2 +1,2 @@
-from .scene_viewer_options import SceneViewerOptions
+from .view_scenes_options import ViewScenesOptions
 from .simulate_dataloader_options import SimulateDataLoaderOptions

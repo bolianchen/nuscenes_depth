@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from options import SceneViewerOptions
+from options import ViewScenesOptions
 from datasets import NuScenesIterator, NuScenesProcessor
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
@@ -130,5 +130,5 @@ def viz_helper(img, sensor_points, bboxes, cats, ax, opts):
             ax.annotate(cat, (cx, cy))
 
 if __name__ == '__main__':
-    opts = SceneViewerOptions().parse()
+    opts = ViewScenesOptions().parse()
     main(opts)
