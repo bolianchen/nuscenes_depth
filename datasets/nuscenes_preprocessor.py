@@ -442,15 +442,24 @@ class NuScenesProcessor:
         # obtain the refrence keyframe
         keyframe = self.nusc.get('sample', sample_token)
 
+        prev_keyframe_exist = keyframe['prev']
+
+        if prev_keyframe_exist:
+            keyframe = self.nusc.get('sample', keyframe['prev'])
+
         # collecting sample_data frames synchronized by the keyframe
         sample = self.nusc.get('sample_data', keyframe['data'][sensor])
 
-        sensor_frames = [sample]
+        if not prev_keyframe_exist:
+            return [sample]
+
+        sensor_frames = []
         while sample['next']:
             sample = self.nusc.get('sample_data', sample['next'])
             if not sample['is_key_frame']:
                 sensor_frames.append(sample)
             else:
+                sensor_frames.append(sample)
                 break
 
         return sensor_frames
@@ -556,8 +565,9 @@ class NuScenesProcessor:
         matched_frames = []
 
         # concat prev, current and next sample tokens
-        sample_tokens = [t for t in (sample['prev'], sample_token,
-            sample['next']) if t != '']
+        #sample_tokens = [t for t in (sample['prev'], sample_token,
+        #    sample['next']) if t != '']
+        sample_tokens = [sample_token]
 
         for sensor_ch in sensor_channels:
             # collect sensor frames of prev, current and next keyframes
