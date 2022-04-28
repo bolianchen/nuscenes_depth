@@ -2,4 +2,4 @@
 
 
 ## Download the nuScenes Dataset
-Please go to [the offical download page](https://www.nuscenes.org/nuscenes#download).
+- Please go to [the offical page](https://www.nuscenes.org/nuscenes#download) to download either the Mini subset or the Trainval subset.
