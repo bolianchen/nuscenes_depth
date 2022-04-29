@@ -14,8 +14,6 @@ import torch
 import torch.utils.data as data
 from torchvision import transforms
 
-import itertools
-
 from utils import image_resize
 
 def pil_loader(path):
