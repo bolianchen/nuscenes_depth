@@ -564,10 +564,10 @@ class NuScenesProcessor:
 
         matched_frames = []
 
+        sample_tokens = [sample_token]
         # concat prev, current and next sample tokens
         #sample_tokens = [t for t in (sample['prev'], sample_token,
         #    sample['next']) if t != '']
-        sample_tokens = [sample_token]
 
         for sensor_ch in sensor_channels:
             # collect sensor frames of prev, current and next keyframes

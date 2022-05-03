@@ -16,7 +16,6 @@ import torch
 from torchvision import transforms
 
 # TODO:
-#    2. make masks with bbox annotations
 #    4. screen out daytime, nighttime, all
 
 class NuScenesDataset(MonoDataset):
@@ -43,8 +42,32 @@ class NuScenesDataset(MonoDataset):
         """Returns a singe training data from the dataset as a dictionary
 
         Keys in the dictionary are either strings or tuples:
+            ('color', <frame_id>, <scale>)
+            ('color_aug', <frame_id>, <scale>)
+            ('mask', <frame_id>, <scale>)
+            ('radar', <frame_id>, 0)
+            ('lidar', <frame_id>, 0)
+            ('K', <scale>)
+            ('inv_K', <scale>)
 
-            ('token', <frame_id>)
+        <frame_id>: an integer representing the temporal adjacency relative to
+                    the frame retrieved by 'index':
+                    0: the frame itself 
+                    1: its next frame
+                    -1: its previouse frame
+                    and so on.
+
+        Several unsupervised depth estimation methods implement multi-scale
+        reconstruction loss. The loss may need downsacled data in some cases
+        
+        <scale> is an integer representing the scale of the image relative to the fullsize image:
+            0       images resized to (self.width,      self.height     )
+            1       images resized to (self.width // 2, self.height // 2)
+            2       images resized to (self.width // 4, self.height // 4)
+            3       images resized to (self.width // 8, self.height // 8)
+
+        Downscaled radar and lidar data are not implemented for now
+
         """
 
         # an empty dictionary
