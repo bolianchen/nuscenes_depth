@@ -7,24 +7,24 @@ The main goal is to provide a PyTorch dataset of nuScenes to facilitate the mode
 
 <ins>**Scene-0757-radar**</ins>
 <p align="center">
-  <img src="readme_files/scene_0757_radar.gif" width="600" />
+  <img src="reference_materials/scene_0757_radar.gif" width="600" />
 </p>
 
 <ins>**Scene-0103-lidar**</ins>
 <p align="center">
-  <img src="readme_files/scene_0103_lidar.gif" width="600" />
+  <img src="reference_materials/scene_0103_lidar.gif" width="600" />
 </p>
 
 <ins>**Scene-0061-radar-multi-camera-view**</ins>
 <p align="center">
-  <img src="readme_files/scene_0061_radar_multicams.png" width="800" />
+  <img src="reference_materials/scene_0061_radar_multicams.png" width="800" />
 </p>
 
 ## Download the nuScenes Dataset
 - Go to [the offical page](https://www.nuscenes.org/nuscenes#download) to download either the Mini subset or the Trainval subset.
 - Create a folder named "nuscenes_data" and uncompress the downloaded files into it to ensure the file structure as shown:
 <p align="center">
-  <img src="readme_files/file_structure.png" width="600" />
+  <img src="reference_materials/file_structure.png" width="600" />
 </p>
 
 ## Environment Setup
