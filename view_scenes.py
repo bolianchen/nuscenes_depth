@@ -10,7 +10,7 @@ def main(opts):
     """
     nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
             opts.frame_ids, speed_limits=opts.speed_limits,
-            cameras=opts.camera_channels, use_keyframe=opts.use_keyframe,
+            camera_channels=opts.camera_channels, use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter)
 
     # display synchronized frames from multiple cameras
@@ -30,8 +30,8 @@ def display_single_cam(opts, nusc_processor, FPS):
     """
     nusc_iterator = NuScenesIterator(
         nusc_processor, opts.width, opts.height,
-        cameras=opts.camera_channels, 
         scene_names=opts.scene_names,
+        camera_channels=opts.camera_channels, 
         fused_dist_sensor=opts.fused_dist_sensor,
         show_bboxes=opts.show_bboxes, 
         )
@@ -80,8 +80,8 @@ def display_multi_cams(opts, nusc_processor, FPS):
         nusc_iterators.append(
                 NuScenesIterator(
                     nusc_processor, opts.width, opts.height,
-                    cameras=[camera_channel], 
                     scene_names=opts.scene_names,
+                    camera_channels=[camera_channel], 
                     fused_dist_sensor=opts.fused_dist_sensor,
                     show_bboxes=opts.show_bboxes)
                 )

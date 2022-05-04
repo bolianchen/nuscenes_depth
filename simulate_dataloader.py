@@ -13,7 +13,7 @@ def main(opts):
     # initialize a nuscenes preprocessor
     nusc_proc = NuScenesProcessor(
             opts.nuscenes_version, opts.data_path, opts.frame_ids,
-            speed_limits=opts.speed_limits, cameras=opts.camera_channels,
+            speed_limits=opts.speed_limits, camera_channels=opts.camera_channels,
             use_keyframe=opts.use_keyframe)
 
     # initialize training dataset

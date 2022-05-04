@@ -18,17 +18,24 @@ from .mono_dataset import pil_loader
 from utils import image_resize
 
 class NuScenesIterator:
-    """An iterator to iterate over the selcted scenes"""
+    """An iterator to iterate over the data of the selcted scenes"""
 
-    def __init__(self, nusc_processor, width, height, cameras=['CAM_FRONT'],
-            scene_names=[], fused_dist_sensor='radar', show_bboxes=False,
-            visibilities=['', '1', '2', '3', '4']):
+    def __init__(self, nusc_processor, width, height, scene_names=[],
+            camera_channels=['CAM_FRONT'], fused_dist_sensor='radar',
+            show_bboxes=False, visibilities=['', '1', '2', '3', '4']):
         """Constructor of the iterator
         Args:
-            scenes(list of str): the format of each entry must be 'scene-xxxx'
-                                 xxxx is 4 decimal digits from 0000 to 1200
+            nusc_processor: a instance of NuScenesProcessor
             width: target width of the output image
             height: target height of the output image
+            scenes_names(list of str): names of the scenes to iterate
+                the format of a name must be 'scene-xxxx'
+                xxxx is 4 decimal digits from 0000 to 1200
+            camera_channels(list of str): camera channels to show
+            fused_dist_sensor(str): which distance sensor to be fused with cameras
+            show_bboxes(bool): whether to display 2d bboxes on keyframes
+            visibilities(list of str): visibility filter for 2d bboxes
+                the higher the value the better the visibility
         """
         self.nusc_proc = nusc_processor
         self.width, self.height = width, height
@@ -41,17 +48,17 @@ class NuScenesIterator:
             if self.nusc_proc.get_version() != 'v1.0-test':
                 self.all_camera_tokens = sum([
                     self.nusc_proc.gen_tokens(
-                        is_train=True, specified_cams=cameras),
+                        is_train=True, specified_cams=camera_channels),
                     self.nusc_proc.gen_tokens(
-                        is_train=False, specified_cams=cameras)], [])
+                        is_train=False, specified_cams=camera_channels)], [])
             else:
                 self.all_camera_tokens = sum([
                     self.nusc_proc.gen_tokens(
-                        is_train=False, specified_cams=cameras)], [])
+                        is_train=False, specified_cams=camera_channels)], [])
         else:
             scenes = self.nusc_proc.get_avail_scenes(scene_names)
             self.all_camera_tokens = []
-            for camera in cameras:
+            for camera in camera_channels:
                 for scene in scenes:
                     camera_tokens = self.nusc_proc.get_camera_sample_data(
                             scene, camera
@@ -95,19 +102,14 @@ class NuScenesIterator:
         return img, point_cloud_uv, bboxes, cats
         
 class NuScenesProcessor:
-    """ nuScenes Dataset Preprocessor
+    """ Preprocessor for the nuScenes Dataset 
 
-    There two main functionalities:
-
-    1)Prepare train_list and val_list of sample_data tokens from selected cameras
-    Multi-threading may be considered
-
-    2)Let users create iterators over the data of the desired scenes
-
+    Based upon the official python SDK to build more specific API for
+    making dataloaders for unsupervised monocular depth models
     """
 
     def __init__(self, version, data_root, frame_ids,
-            speed_limits=[0.0, np.inf], cameras=['CAM_FRONT'],
+            speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             use_keyframe=False, stationary_filter=False):
 
         self.version = version
@@ -142,7 +144,7 @@ class NuScenesProcessor:
         self.frame_ids = sorted(frame_ids)
 
         # each scene contains info of all the sensor channels
-        self.cameras = cameras
+        self.cameras = camera_channels
 
         self.use_keyframe=use_keyframe
         self.stationary_filter = stationary_filter
@@ -162,9 +164,6 @@ class NuScenesProcessor:
         Ex: when version is set as v1.0-trainval, any subsets of the set of
         all the 10 blobs.tgz files as shown:
             [v1.0-trainval01_blobs.tgz - v1.0-trainval010_blobs.tgz]
-
-        Returns:
-
         """
 
         scenes = self.nusc.scene
@@ -194,7 +193,7 @@ class NuScenesProcessor:
         return scenes
 
     def gen_tokens(self, is_train=True, specified_cams=[] ):
-        """Generate a list of camera tokens according to the available splits
+        """Generate a list of camera tokens of the corresponding sample split
         """
         if self.version == 'v1.0-mini':
             split_names = ['mini_train', 'mini_val']
@@ -209,7 +208,6 @@ class NuScenesProcessor:
             split = self.usable_splits['train']
         else:
             split = self.usable_splits['val']
-
 
         all_tokens = []
         all_scenes = self.get_avail_scenes(split)
@@ -309,8 +307,15 @@ class NuScenesProcessor:
         return coords, cats
 
     def adjust_2d_bboxes(self, bboxes, width, height, ratio, du, dv):
+        """Adjust the coordniates of the 2d bboxes according to the resizing
+        Args:
+            width(int): width of the output image
+            height(int): height of the output image
+            ratio(float): downscaling ratio
+            du(int): shift of the optical axis horizontally
+            dv(int): shift of the optical axis vertically
         """
-        """
+
         if len(bboxes) == 0:
             return []
 
@@ -687,7 +692,8 @@ class NuScenesProcessor:
 
 	Args:
             cam_token: Sample data token belonging to a camera keyframe.
-            visibilities: Visibility filter.
+            visibilities(list of str): visibility filter for 2d bboxes
+                the higher the value the better the visibility
         Returns:
             List of 2D annotation record that belongs to the input `sample_data_token`
         """
