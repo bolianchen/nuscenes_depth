@@ -14,7 +14,7 @@ import torch
 import torch.utils.data as data
 from torchvision import transforms
 
-from utils import image_resize
+from lib.utils import image_resize
 
 def pil_loader(path):
     # open path as file to avoid ResourceWarning

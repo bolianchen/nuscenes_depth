@@ -10,8 +10,11 @@ def main(opts):
     """
     nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
             opts.frame_ids, speed_limits=opts.speed_limits,
-            camera_channels=opts.camera_channels, use_keyframe=opts.use_keyframe,
-            stationary_filter=opts.stationary_filter)
+            camera_channels=opts.camera_channels,
+            use_keyframe=opts.use_keyframe,
+            stationary_filter=opts.stationary_filter,
+            use_maskrcnn_masks=opts.use_maskrcnn_masks,
+            seg_mask=opts.seg_mask)
 
     # display synchronized frames from multiple cameras
     if opts.use_keyframe and len(opts.camera_channels) > 1:

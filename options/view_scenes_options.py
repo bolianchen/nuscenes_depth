@@ -109,6 +109,11 @@ class ViewScenesOptions:
                                  default="radar",
                                  help="which distance sensor to be fused"
                                       "with camera image")
+        self.parser.add_argument("--use_maskrcnn_masks",
+                                 action="store_true",
+                                 help="only applicable for the nuScenes dataset "
+                                      "to pre-generate a mask with Mask R-CNN "
+                                      "and save in disk alongside each image")
 
         # OPTIONS to FILTER RADAR and LIDAR GROUND-TRUTH
         self.parser.add_argument("--min_depth",

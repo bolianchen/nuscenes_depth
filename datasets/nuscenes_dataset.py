@@ -10,9 +10,10 @@ from nuscenes.nuscenes import NuScenes
 from nuscenes.can_bus.can_bus_api import NuScenesCanBus
 from nuscenes.utils.splits import create_splits_scenes
 
-from .mono_dataset import MonoDataset
+from .mono_dataset import pil_loader, MonoDataset
 
 import torch
+import torch.utils.data as data
 from torchvision import transforms
 
 # TODO:
@@ -189,4 +190,3 @@ class NuScenesDataset(MonoDataset):
             depth_map = np.flip(depth_map, axis = 1)
 
         return depth_map
-

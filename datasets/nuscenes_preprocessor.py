@@ -1,7 +1,9 @@
 import os
 import sys
+from tqdm import tqdm
 import numpy as np
 import bisect
+import imageio
 from matplotlib import pyplot as plt
 
 from nuscenes.nuscenes import NuScenes
@@ -15,7 +17,8 @@ from pyquaternion.quaternion import Quaternion
 from . import CAM2RADARS, STATIONARY_CATEGORIES
 from PIL import Image
 from .mono_dataset import pil_loader
-from utils import image_resize
+#from .auxiliary_datasets import Paths2ImagesDataset
+from lib.utils import image_resize, generate_seg_masks
 
 class NuScenesIterator:
     """An iterator to iterate over the data of the selcted scenes"""
@@ -110,12 +113,16 @@ class NuScenesProcessor:
 
     def __init__(self, version, data_root, frame_ids,
             speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
-            use_keyframe=False, stationary_filter=False):
+            use_keyframe=False, stationary_filter=False,
+            use_maskrcnn_masks=False, seg_mask='none'):
 
         self.version = version
         self.data_root = data_root
         # initialize an instance of nuScenes data
         self.nusc = NuScenes(version=self.version, dataroot=self.data_root)
+        # determine whether to generate segmentation masks with Mask R-CNN
+
+        # prepare a symbol table to map a split to its scenes
         all_splits = create_splits_scenes()
         # dictionary of the official splits
         # key: split name; value: scenes in the split
@@ -144,10 +151,24 @@ class NuScenesProcessor:
         self.frame_ids = sorted(frame_ids)
 
         # each scene contains info of all the sensor channels
-        self.cameras = camera_channels
+        self.camera_channels = camera_channels
 
         self.use_keyframe=use_keyframe
         self.stationary_filter = stationary_filter
+
+        if use_maskrcnn_masks:
+            if not seg_mask in ['mono', 'color']:
+                seg_mask = 'color'
+            # collect all image paths of the specified camera_channels
+            # of the usable_splits
+            img_paths = []
+            for scene_names in self.usable_splits.values():
+                # collect all the
+                img_paths.extend(
+                        self.get_img_paths(scene_names, self.camera_channels)
+                        )
+                #(scenes, cameras)
+            generate_seg_masks(img_paths, seg_mask=seg_mask)
 
     def get_avail_scenes(self, scene_names):
         """Return the metadata of all the available scenes contained in split
@@ -194,15 +215,8 @@ class NuScenesProcessor:
 
     def gen_tokens(self, is_train=True, specified_cams=[] ):
         """Generate a list of camera tokens of the corresponding sample split
+        TODO: add details
         """
-        if self.version == 'v1.0-mini':
-            split_names = ['mini_train', 'mini_val']
-        elif self.version == 'v1.0-trainval':
-            split_names = ['train', 'val']
-        else:
-            # does not support version = v1.0-test
-            # split_names = ['test']
-            raise NotImplementedError
 
         if is_train:
             split = self.usable_splits['train']
@@ -213,14 +227,16 @@ class NuScenesProcessor:
         all_scenes = self.get_avail_scenes(split)
 
         if len(specified_cams) == 0:
-            cameras = self.cameras
+            camera_channels = self.camera_channels
         else:
-            cameras = specified_cams
+            camera_channels = specified_cams
 
-        for camera in cameras:
+        for camera_channel in camera_channels:
             for scene in all_scenes:
+                # collect all the frames satisfying the specified requirements
+                # in each scene
                 camera_frames = self.get_camera_sample_data(
-                        scene, camera )
+                        scene, camera_channel )
                 all_tokens.extend(camera_frames)
 
         return all_tokens
@@ -349,6 +365,38 @@ class NuScenesProcessor:
                 mask[y1:y2,x1:x2] = 255
 
         return Image.fromarray(mask)
+
+    def get_img_paths(self, scene_names, camera_channels):
+        """
+        """
+        img_paths = []
+        scenes = self.get_avail_scenes(scene_names)
+        for scene in scenes:
+            sample_token = scene['first_sample_token']
+            keyframe = self.nusc.get('sample', sample_token)
+
+            for camera_channel in camera_channels:
+                cam_sample_data = self.nusc.get(
+                        'sample_data',
+                        keyframe['data'][camera_channel])
+
+                while True:
+
+                    img_path = os.path.join(
+                            self.data_root, cam_sample_data['filename'])
+                    # add the path only if the corresponding mask does not exists
+                    if not os.path.exists(
+                            os.path.splitext(img_path)[0] + '-fseg.jpg'):
+                        img_paths.append(img_path)
+
+                    if cam_sample_data['next'] == '':
+                        break
+                    else:
+                        # update the metadata for the sample_data frame
+                        cam_sample_data = self.nusc.get(
+                                'sample_data', cam_sample_data['next'])
+
+        return img_paths
 
     def get_camera_sample_data(self, scene, camera, token_only=True):
         """Collects all valid sample_data of a camera in a scene
@@ -769,38 +817,3 @@ class NuScenesProcessor:
 
     def not_use_keyframe(self):
         return not self.use_keyframe
-
-
-
-if __name__ == '__main__':
-    version = 'v1.0-mini'
-    nuscenes_dir = '/home/bryanchen/Coding/Projects/ss_depth/nuscenes_data'
-    #cameras = ['CAM_FRONT', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT',
-    #           'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_BACK_RIGHT']
-    FPS = 12.0
-    frame_ids = [0, -1, 1]
-    speed_limits = [0, 20]
-    cameras = ['CAM_FRONT']
-    width = 512
-    height = 288
-    #scene_names = ['scene-0061']
-    scene_names = []
-    #nusc = NuScenesProcessor(version, nuscenes_dir, [0, -1, 1],
-    #        speed_limits=[0, 20], cameras=cameras)
-    #train_tokens, val_tokens = nusc.gen_tokens()
-    nusc_iterator = NuScenesIterator(version, nuscenes_dir, frame_ids, width,
-            height, speed_limits=speed_limits, cameras=cameras, 
-            scene_names=scene_names)
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4.5))
-    plt.tight_layout()
-    for img, points in nusc_iterator:
-        
-        ax.cla()
-        #ax.set_xlim(0, width-1)
-        #ax.set_ylim(0, height-1)
-        ax.set_axis_off()
-        ax.imshow(img)
-        ax.scatter(points[0,:], points[1,:],
-                c=points[2,:], s=5)
-        plt.pause(1/FPS)
-

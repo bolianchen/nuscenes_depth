@@ -69,6 +69,7 @@ class SimulateDataLoaderOptions:
                                       " according to the ratio",
                                  default=[0.0, 1.0])
         ## POSSIBLY MOBILE MASKS options
+                                        
         MASK = ["none", "mono", "color"]
         self.parser.add_argument("--seg_mask",
                                  type=str,
@@ -132,13 +133,17 @@ class SimulateDataLoaderOptions:
                             type=float,
                             nargs="+",
                             help="lower and upper speed limits to screen samples")
+        self.parser.add_argument("--use_maskrcnn_masks",
+                                 action="store_true",
+                                 help="only applicable for the nuScenes dataset "
+                                      "to pre-generate a mask with Mask R-CNN "
+                                      "and save in disk alongside each image")
         self.parser.add_argument("--use_radar",
                                  help="if set, uses radar data for training",
                                  action="store_true")
         self.parser.add_argument("--use_lidar",
                                  help="if set, uses lidar data for training",
                                  action="store_true")
-
         # DATALOADER & OPTIMIZATION Options
         self.parser.add_argument("--batch_size",
                                  type=int,

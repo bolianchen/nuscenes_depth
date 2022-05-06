@@ -4,7 +4,7 @@ from datasets import NuScenesProcessor, NuScenesDataset
 import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
-from utils import normalize_image
+from lib.utils import normalize_image
 
 def main(opts):
     """Store a batch of dataloader output to tensorboard
@@ -13,8 +13,12 @@ def main(opts):
     # initialize a nuscenes preprocessor
     nusc_proc = NuScenesProcessor(
             opts.nuscenes_version, opts.data_path, opts.frame_ids,
-            speed_limits=opts.speed_limits, camera_channels=opts.camera_channels,
-            use_keyframe=opts.use_keyframe)
+            speed_limits=opts.speed_limits,
+            camera_channels=opts.camera_channels,
+            use_keyframe=opts.use_keyframe,
+            stationary_filter=opts.stationary_filter,
+            use_maskrcnn_masks=opts.use_maskrcnn_masks,
+            seg_mask=opts.seg_mask)
 
     # initialize training dataset
     dataset = NuScenesDataset(

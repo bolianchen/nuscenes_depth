@@ -14,6 +14,7 @@ STATIONARY_CATEGORIES={'movable_object.trafficcone', 'movable_object.barrier',
                        'movable_object.debris', 'static_object.bicycle_rack'}
 
 
+from .auxiliary_datasets import Paths2ImagesDataset
 from .nuscenes_dataset import NuScenesDataset
 from .nuscenes_preprocessor import NuScenesProcessor, NuScenesIterator
 
