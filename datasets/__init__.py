@@ -1,4 +1,5 @@
 
+# a map to determine which radars to be projected onto each camera image plane
 CAM2RADARS = {
         'CAM_FRONT': ['RADAR_FRONT', 'RADAR_FRONT_LEFT', 'RADAR_FRONT_RIGHT'],
         'CAM_FRONT_LEFT': ['RADAR_FRONT', 'RADAR_FRONT_LEFT',
@@ -10,6 +11,7 @@ CAM2RADARS = {
         'CAM_BACK': ['RADAR_BACK_LEFT', 'RADAR_BACK_RIGHT'],
         }
 
+# for filtering bboxes of stationary objects
 STATIONARY_CATEGORIES={'movable_object.trafficcone', 'movable_object.barrier',
                        'movable_object.debris', 'static_object.bicycle_rack'}
 

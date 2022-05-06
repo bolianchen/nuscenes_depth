@@ -3,6 +3,8 @@ from torchvision import transforms
 from .mono_dataset import pil_loader
 
 class Paths2ImagesDataset(data.Dataset):
+    """Dataset to sample image and its path from a given list of image paths
+    """
     def __init__(self, img_paths):
         super(Paths2ImagesDataset, self).__init__()
         self.img_paths = img_paths
