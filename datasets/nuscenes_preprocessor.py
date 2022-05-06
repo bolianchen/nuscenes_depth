@@ -107,21 +107,19 @@ class NuScenesIterator:
 class NuScenesProcessor:
     """ Preprocessor for the nuScenes Dataset 
 
-    Based upon the official python SDK to build more specific API for
-    making dataloaders for unsupervised monocular depth models
+    Based upon the official python SDK to design specific API for
+    building dataloaders for unsupervised monocular depth models
     """
 
     def __init__(self, version, data_root, frame_ids,
             speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             use_keyframe=False, stationary_filter=False,
-            use_maskrcnn_masks=False, seg_mask='none'):
+            how_to_gen_masks='maskrcnn', seg_mask='none'):
 
         self.version = version
         self.data_root = data_root
         # initialize an instance of nuScenes data
         self.nusc = NuScenes(version=self.version, dataroot=self.data_root)
-        # determine whether to generate segmentation masks with Mask R-CNN
-
         # prepare a symbol table to map a split to its scenes
         all_splits = create_splits_scenes()
         # dictionary of the official splits
@@ -156,18 +154,20 @@ class NuScenesProcessor:
         self.use_keyframe=use_keyframe
         self.stationary_filter = stationary_filter
 
-        if use_maskrcnn_masks:
-            if not seg_mask in ['mono', 'color']:
+        # which type of segmentation masks to generate 
+        self.how_to_gen_masks = how_to_gen_masks
+
+        if self.how_to_gen_masks == 'maskrcnn':
+            if seg_mask == 'none':
                 seg_mask = 'color'
             # collect all image paths of the specified camera_channels
             # of the usable_splits
             img_paths = []
             for scene_names in self.usable_splits.values():
-                # collect all the
+                # collect all the image paths
                 img_paths.extend(
                         self.get_img_paths(scene_names, self.camera_channels)
                         )
-                #(scenes, cameras)
             generate_seg_masks(img_paths, seg_mask=seg_mask)
 
     def get_avail_scenes(self, scene_names):
@@ -214,8 +214,15 @@ class NuScenesProcessor:
         return scenes
 
     def gen_tokens(self, is_train=True, specified_cams=[] ):
-        """Generate a list of camera tokens of the corresponding sample split
-        TODO: add details
+        """Generate a list of camera tokens of the corresponding split of scenes
+        Args:
+            is_train(bool): if true, generate tokens for the scenes in the
+                            training set; otherwise, for the val set
+            specified_cams(list of str): if not empty, self.camera_channels
+                                         will be overwritten it
+
+        To generate the tokens of camera sample_data frames
+
         """
 
         if is_train:
@@ -241,8 +248,7 @@ class NuScenesProcessor:
 
         return all_tokens
 
-    def get_adjacent_token(self, token, relative_idx,
-            enforce_adj_nonkeyframe=False):
+    def get_adjacent_token(self, token, relative_idx):
         """Returns the sample_data token of a earlier or later frame
         Args:
             token(str): sample_data token of the central frame
@@ -251,8 +257,6 @@ class NuScenesProcessor:
                                +1 represents one frame later (i.e. next frame)
                                -1 represents one frame earlier (i.e. prev frame)
                                and so on...
-            enforce_adj_nonkeyframe(bool): enforces returning the sample_data
-                                           token of adjacent non-keyframes 
         """
 
         if relative_idx == 0:
@@ -265,34 +269,22 @@ class NuScenesProcessor:
 
         gap = abs(relative_idx)
 
-        if self.use_keyframe and not enforce_adj_nonkeyframe:
+        if self.use_keyframe:
             sample_data = self.nusc.get('sample_data', token)
             sensor_token = self.nusc.get('calibrated_sensor',
                     sample_data['calibrated_sensor_token'])['sensor_token']
             sensor_channel = self.nusc.get('sensor', sensor_token)['channel']
             keyframe_token = sample_data['sample_token']
             while gap != 0:
-                try:
-                    keyframe_token = self.nusc.get(
-                            'sample', keyframe_token)[action]
-                except:
-                    return False
+                keyframe_token = self.nusc.get('sample', keyframe_token)[action]
                 gap -= 1
+
             token = self.nusc.get('sample',
                     keyframe_token)['data'][sensor_channel]
 
         else:
-
-            # if use_keyframe is True, token would be a keyframe token
-            # find its corresponding sample_data token
-            if self.use_keyframe and enforce_adj_nonkeyframe:
-                token = self.nusc.get('sample_data', token)['token']
-
             while gap != 0:
-                try:
-                    token = self.nusc.get('sample_data', token)[action]
-                except:
-                    return False
+                token = self.nusc.get('sample_data', token)[action]
                 gap -= 1
 
         return token
@@ -343,10 +335,22 @@ class NuScenesProcessor:
 
         return bboxes
 
-    def gen_seg_mask(self, cam_token, force_black=False):
-        """Returns the mono segmentation mask
+    def gen_seg_mask(self, cam_token):
+        """Returns the segmentation mask corresponding to the cam_token image
 
-        The returned mask would be full black for a non-keyframe cam_token
+        Args:
+            cam_token(str): a camera sample_data token
+        Returns:
+            mask(PIL.Image.Image)
+
+        There are 3 types segmentation masks:
+            1). generated by a pretrained Mask R-CNN model
+            2). generated by overlapping bboxes
+            3). full black masks
+
+        when this method is called, which type to generate completely 
+        determined by the initialization of the NuScenesProcessor instance
+
         """
 
         camera_sample_data = self.nusc.get('sample_data', cam_token)
@@ -356,18 +360,31 @@ class NuScenesProcessor:
         # initialize the mask as black
         mask = np.zeros((img_height, img_width), dtype=np.uint8)
 
-        if not force_black:
+        if self.how_to_gen_masks == 'black':
+            # no additional processing required
+            mask = Image.fromarray(mask)
+
+        elif self.how_to_gen_masks == 'bbox' and self.use_keyframe:
+            # bboxes are only available for keyframes
+
             # round the coordinates to integers
             bboxes = np.rint(self.gen_2d_bboxes(cam_token)[0]).astype(np.int32)
             bboxes = self.adjust_2d_bboxes(bboxes, img_width, img_height, 1, 0, 0)
             # fill the white color onto the regions of the bboxes
             for x1, y1, x2, y2 in bboxes:
                 mask[y1:y2,x1:x2] = 255
+            mask = Image.fromarray(mask)
 
-        return Image.fromarray(mask)
+        else:
+            img_path = os.path.join(self.data_root,
+                                     camera_sample_data['filename'])
+            mask_path = os.path.splitext(img_path)[0] + '-fseg.jpg'
+            mask = pil_loader(mask_path)
+
+        return mask
 
     def get_img_paths(self, scene_names, camera_channels):
-        """
+        """Collect the image paths of the specified cameras in specified scenes
         """
         img_paths = []
         scenes = self.get_avail_scenes(scene_names)
@@ -555,9 +572,9 @@ class NuScenesProcessor:
             delta_u, delta_v):
         """Obtains a depth map whose shape is consistent with the resized images
         Args:
-            token: a camera sample_data token
-            width:
-            height:
+            token(str): a camera sample_data token
+            width(int): width of the corresponding image
+            height(int): height of the corresponding image
         Returns:
             a sensor map(from radars or lidar) has shape of (width, height)
         """
@@ -577,6 +594,8 @@ class NuScenesProcessor:
     def match_dist_sensor_frames(self, camera_sample_data,
             sensor_type='radar'):
         """Returns the matched radar frames from the radar channels
+        
+        Find the closest radar frames in timestamp with the camera_sample_data
 
         Args:
             camera_sample_data(str): metadata of camera sample_data
@@ -645,6 +664,8 @@ class NuScenesProcessor:
             1) whose required adjacent frames exist according to frame_ids
             2) the frame itself and its adjacent frames meet the speed
                requirements
+
+        TODO: reduce of the complexity of this method
         """
 
         if use_keyframe:
@@ -815,5 +836,3 @@ class NuScenesProcessor:
     def get_version(self):
         return self.version
 
-    def not_use_keyframe(self):
-        return not self.use_keyframe

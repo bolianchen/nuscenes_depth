@@ -9,15 +9,13 @@ from lib.utils import normalize_image
 def main(opts):
     """Store a batch of dataloader output to tensorboard
     """
-
     # initialize a nuscenes preprocessor
-    nusc_proc = NuScenesProcessor(
-            opts.nuscenes_version, opts.data_path, opts.frame_ids,
-            speed_limits=opts.speed_limits,
+    nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
+            opts.frame_ids, speed_limits=opts.speed_limits,
             camera_channels=opts.camera_channels,
             use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter,
-            use_maskrcnn_masks=opts.use_maskrcnn_masks,
+            how_to_gen_masks=opts.how_to_gen_masks,
             seg_mask=opts.seg_mask)
 
     # initialize training dataset
@@ -30,8 +28,7 @@ def main(opts):
             MIN_OBJECT_AREA=opts.MIN_OBJECT_AREA, boxify=opts.boxify,
             prob_to_mask_objects=opts.prob_to_mask_objects,
             use_radar=opts.use_radar, use_lidar=opts.use_lidar,
-            min_depth=opts.min_depth, max_depth=opts.max_depth,
-            enforce_adj_nonkeyframe=opts.enforce_adj_nonkeyframe)
+            min_depth=opts.min_depth, max_depth=opts.max_depth)
 
     dataloader = DataLoader(dataset, opts.batch_size, shuffle = True,
             num_workers=opts.num_workers, pin_memory=True, drop_last=True)

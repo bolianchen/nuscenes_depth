@@ -8,12 +8,13 @@ from matplotlib.patches import Rectangle
 def main(opts):
     """Render the camera images fused with the specified distance sensor
     """
+    # initialize a nuscenes preprocessor
     nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
             opts.frame_ids, speed_limits=opts.speed_limits,
             camera_channels=opts.camera_channels,
             use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter,
-            use_maskrcnn_masks=opts.use_maskrcnn_masks,
+            how_to_gen_masks=opts.how_to_gen_masks,
             seg_mask=opts.seg_mask)
 
     # display synchronized frames from multiple cameras

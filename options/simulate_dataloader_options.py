@@ -69,11 +69,9 @@ class SimulateDataLoaderOptions:
                                       " according to the ratio",
                                  default=[0.0, 1.0])
         ## POSSIBLY MOBILE MASKS options
-                                        
-        MASK = ["none", "mono", "color"]
         self.parser.add_argument("--seg_mask",
                                  type=str,
-                                 choices=MASK,
+                                 choices=["none", "mono", "color"],
                                  default="none",
                                  help="whether to use segmetation mask")
         self.parser.add_argument("--MIN_OBJECT_AREA",
@@ -113,15 +111,6 @@ class SimulateDataLoaderOptions:
                                       "there are two categories: "
                                       "1. sample_data frames in 12Hz (default) "
                                       "2. keyframes in 2Hz")
-        self.parser.add_argument("--enforce_adj_nonkeyframe",
-                                 action="store_true",
-                                 help="this option only effective when "
-                                      "use_keyframe is set True: "
-                                      "if True, adjacent non-keyframes would "
-                                      " be paired with the central keyframe "
-                                      "for image construction; "
-                                      "if False, all adjacent and central "
-                                      "frames would be keyframes")
         self.parser.add_argument("--stationary_filter",
                                  action="store_true",
                                  help="set True to filter out "
@@ -133,11 +122,14 @@ class SimulateDataLoaderOptions:
                             type=float,
                             nargs="+",
                             help="lower and upper speed limits to screen samples")
-        self.parser.add_argument("--use_maskrcnn_masks",
-                                 action="store_true",
-                                 help="only applicable for the nuScenes dataset "
-                                      "to pre-generate a mask with Mask R-CNN "
-                                      "and save in disk alongside each image")
+        self.parser.add_argument("--how_to_gen_masks",
+                                 type=str,
+                                 choices=["maskrcnn", "bbox", "black"],
+                                 default="maskrcnn",
+                                 help="maskrcnn - generate segmentation masks "
+                                      " with a Mask R-CNN model pretrained on "
+                                      "COCO and save alongside the camera "
+                                      "images in disk")
         self.parser.add_argument("--use_radar",
                                  help="if set, uses radar data for training",
                                  action="store_true")

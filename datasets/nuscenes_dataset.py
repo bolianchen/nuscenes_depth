@@ -30,7 +30,6 @@ class NuScenesDataset(MonoDataset):
         self.nusc_proc = args[1]
         self.nusc = self.nusc_proc.get_nuscenes_obj()
         args[1] = self.nusc_proc.gen_tokens(is_train=kwargs['is_train'])
-        self.enforce_adj_nonkeyframe=kwargs['enforce_adj_nonkeyframe']
         super(NuScenesDataset, self).__init__(*args, **kwargs)
 
     def check_depth(self):
@@ -99,8 +98,9 @@ class NuScenesDataset(MonoDataset):
                     color_info)
 
             if self.seg_mask != 'none':
-                inputs[('mask', i, -1)] = self.get_mask(token, i, do_flip,
-                                                        crop_offset)[0]
+                mask = self.get_mask(token, i, do_flip, crop_offset)[0]
+                inputs[('mask', i, -1)] = mask.convert('L')
+                                                        
 
             if self.use_radar:
                 inputs[('radar', i, 0)] = self.get_sensor_map(
@@ -122,6 +122,7 @@ class NuScenesDataset(MonoDataset):
                 self.brightness, self.contrast, self.saturation, self.hue)
         else:
             color_aug = (lambda x: x)
+        
 
         self.preprocess(inputs, color_aug)
 
@@ -138,8 +139,7 @@ class NuScenesDataset(MonoDataset):
     def get_color(self, token, frame_id, do_flip, crop_offset=-3):
         """Returns an resized RGB image and its camera sample_data token"""
         # get the token of the adjacent frame
-        token = self.nusc_proc.get_adjacent_token(token, frame_id,
-                enforce_adj_nonkeyframe=self.enforce_adj_nonkeyframe)
+        token = self.nusc_proc.get_adjacent_token(token, frame_id)
         sample_data = self.nusc.get('sample_data', token)
         img_path = os.path.join(self.data_path, sample_data['filename'])
         return token, self.get_image(self.loader(img_path), do_flip, crop_offset)
@@ -147,16 +147,9 @@ class NuScenesDataset(MonoDataset):
     def get_mask(self, token, frame_id, do_flip, crop_offset=-3):
         """Return an Resized segmentation mask
         """
-        # duplicate the central keyframe mask for its adjacent
-        # non-keyframes
-        if not self.enforce_adj_nonkeyframe:
-            token = self.nusc_proc.get_adjacent_token(token, frame_id)
-
-
-        return self.get_image(
-                self.nusc_proc.gen_seg_mask(
-                    token, force_black=self.nusc_proc.not_use_keyframe()),
-                do_flip, crop_offset)
+        token = self.nusc_proc.get_adjacent_token(token, frame_id)
+        mask = self.nusc_proc.gen_seg_mask(token)
+        return self.get_image(mask, do_flip, crop_offset)
 
     def load_intrinsics(self, token):
         """Returns a 4x4 camera intrinsics matrix corresponding to the token
