@@ -28,5 +28,11 @@ The main goal is to provide a PyTorch dataset of nuScenes to facilitate the mode
 </p>
 
 ## Environment Setup
+A [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) is recommended:
+```
+conda install pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 -c pytorch
+conda install --file requirements.txt
+pip install nuscenes-devkit
+```
 
 ## Test on Unsupervised Depth Prediction Models

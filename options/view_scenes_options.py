@@ -104,16 +104,19 @@ class ViewScenesOptions:
                             nargs="+",
                             help="lower and upper speed limits to screen "
                                  "samples")
+        self.parser.add_argument("--how_to_gen_masks",
+                                 type=str,
+                                 choices=["maskrcnn", "bbox", "black"],
+                                 default="black",
+                                 help="maskrcnn - generate segmentation masks "
+                                      " with a Mask R-CNN model pretrained on "
+                                      "COCO and save alongside the camera "
+                                      "images in disk")
         self.parser.add_argument("--fused_dist_sensor",
                                  type=str,
                                  default="radar",
                                  help="which distance sensor to be fused"
                                       "with camera image")
-        self.parser.add_argument("--use_maskrcnn_masks",
-                                 action="store_true",
-                                 help="only applicable for the nuScenes dataset "
-                                      "to pre-generate a mask with Mask R-CNN "
-                                      "and save in disk alongside each image")
 
         # OPTIONS to FILTER RADAR and LIDAR GROUND-TRUTH
         self.parser.add_argument("--min_depth",

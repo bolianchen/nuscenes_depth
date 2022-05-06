@@ -17,7 +17,6 @@ from pyquaternion.quaternion import Quaternion
 from . import CAM2RADARS, STATIONARY_CATEGORIES
 from PIL import Image
 from .mono_dataset import pil_loader
-#from .auxiliary_datasets import Paths2ImagesDataset
 from lib.utils import image_resize, generate_seg_masks
 
 class NuScenesIterator:
