@@ -1,6 +1,6 @@
 # PyTorch Dataloader of nuScenes for Image Depth Prediction
 ## Project Objective
-The main goal is to provide a PyTorch dataset of nuScenes to facilitate the model training of unsupervised monocular depth prediction models, including [monodepth2](https://github.com/nianticlabs/monodepth2) and [depth from videos in the wild](https://github.com/bolianchen/pytorch_depth_from_videos_in_the_wild). 
+The main goal is to provide a PyTorch dataset of nuScenes to facilitate the model training of unsupervised monocular depth prediction models, including [monodepth2](https://github.com/bolianchen/monodepth2_on_nuscenes) and [depth from videos in the wild](https://github.com/bolianchen/pytorch_depth_from_videos_in_the_wild). 
 - Each data is composed of consecutive camera frames sampled with 12Hz.
 - Radar and lidar data with the closest timestamps are fused with each camera frame for sparse supervision design, which may enhance the performance of unsupervised models.
 - A scenes viewing functionality is also available to visually inspect the camera images fused with radar or lidar data in one or multiple scenes at a time.
