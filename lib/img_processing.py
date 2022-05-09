@@ -42,7 +42,7 @@ class NuScenesProcessor:
     def __init__(self, version, data_root, frame_ids,
             speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             use_keyframe=False, stationary_filter=False,
-            how_to_gen_masks='bbox', seg_mask='none'):
+            how_to_gen_masks='bbox', regen_masks=False, seg_mask='none'):
 
         self.version = version
         self.data_root = data_root
@@ -84,10 +84,9 @@ class NuScenesProcessor:
 
         # which type of segmentation masks to generate 
         self.how_to_gen_masks = how_to_gen_masks
+        self.regen_masks = regen_masks
 
-        if self.how_to_gen_masks == 'maskrcnn':
-            if seg_mask == 'none':
-                seg_mask = 'color'
+        if seg_mask != 'none' and self.how_to_gen_masks == 'maskrcnn':
             # collect all image paths of the specified camera_channels
             # of the usable_splits
             img_paths = []
@@ -331,7 +330,7 @@ class NuScenesProcessor:
                     img_path = os.path.join(
                             self.data_root, cam_sample_data['filename'])
                     # add the path only if the corresponding mask does not exists
-                    if not os.path.exists(
+                    if self.regen_masks or not os.path.exists(
                             os.path.splitext(img_path)[0] + '-fseg.jpg'):
                         img_paths.append(img_path)
 

@@ -129,7 +129,15 @@ class SimulateDataLoaderOptions:
                                  help="maskrcnn - generate segmentation masks "
                                       " with a Mask R-CNN model pretrained on "
                                       "COCO and save alongside the camera "
-                                      "images in disk")
+                                      "images in disk. Each mask would have "
+                                      "the same name with the correponding "
+                                      "image except for the suffix -fseg ")
+        self.parser.add_argument("--regen_masks",
+                                 help="if set and how_to_gen_masks=maskrcnn "
+                                      "existing mask-rcnnmasks would be "
+                                      "overwritten; this may be used when "
+                                      "trying different seg_mask options",
+                                 action="store_true")
         self.parser.add_argument("--use_radar",
                                  help="if set, uses radar data for training",
                                  action="store_true")

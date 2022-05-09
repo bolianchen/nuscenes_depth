@@ -18,7 +18,7 @@ def main(opts):
             use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter,
             how_to_gen_masks=opts.how_to_gen_masks,
-            seg_mask=opts.seg_mask)
+            regen_masks=opts.regen_masks, seg_mask=opts.seg_mask)
 
     # initialize training dataset
     dataset = NuScenesDataset(
