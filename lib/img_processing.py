@@ -1,6 +1,5 @@
 import os
 import sys
-from tqdm import tqdm
 import numpy as np
 import bisect
 import imageio
@@ -14,95 +13,24 @@ from nuscenes.scripts.export_2d_annotations_as_json import post_process_coords, 
 from nuscenes.utils.geometry_utils import view_points
 from pyquaternion.quaternion import Quaternion
 
-from . import CAM2RADARS, STATIONARY_CATEGORIES
 from PIL import Image
-from .mono_dataset import pil_loader
-#from .auxiliary_datasets import Paths2ImagesDataset
-from lib.utils import image_resize, generate_seg_masks
+from lib.algos import generate_seg_masks
 
-class NuScenesIterator:
-    """An iterator to iterate over the data of the selcted scenes"""
+# a map to determine which radars to be projected onto each camera image plane
+CAM2RADARS = {
+        'CAM_FRONT': ['RADAR_FRONT', 'RADAR_FRONT_LEFT', 'RADAR_FRONT_RIGHT'],
+        'CAM_FRONT_LEFT': ['RADAR_FRONT', 'RADAR_FRONT_LEFT',
+                           'RADAR_FRONT_RIGHT'],
+        'CAM_FRONT_RIGHT': ['RADAR_FRONT', 'RADAR_FRONT_LEFT',
+                            'RADAR_FRONT_RIGHT'],
+        'CAM_BACK_LEFT': ['RADAR_FRONT_LEFT', 'RADAR_BACK_LEFT'],
+        'CAM_BACK_RIGHT': ['RADAR_FRONT_RIGHT', 'RADAR_BACK_RIGHT'],
+        'CAM_BACK': ['RADAR_BACK_LEFT', 'RADAR_BACK_RIGHT'],
+        }
 
-    def __init__(self, nusc_processor, width, height, scene_names=[],
-            camera_channels=['CAM_FRONT'], fused_dist_sensor='radar',
-            show_bboxes=False, visibilities=['', '1', '2', '3', '4']):
-        """Constructor of the iterator
-        Args:
-            nusc_processor: a instance of NuScenesProcessor
-            width: target width of the output image
-            height: target height of the output image
-            scenes_names(list of str): names of the scenes to iterate
-                the format of a name must be 'scene-xxxx'
-                xxxx is 4 decimal digits from 0000 to 1200
-            camera_channels(list of str): camera channels to show
-            fused_dist_sensor(str): which distance sensor to be fused with cameras
-            show_bboxes(bool): whether to display 2d bboxes on keyframes
-            visibilities(list of str): visibility filter for 2d bboxes
-                the higher the value the better the visibility
-        """
-        self.nusc_proc = nusc_processor
-        self.width, self.height = width, height
-        self.fused_dist_sensor = fused_dist_sensor
-        self.show_bboxes = show_bboxes
-        self.visibilities = visibilities
-
-        # includes all the scenes
-        if len(scene_names) == 0:
-            if self.nusc_proc.get_version() != 'v1.0-test':
-                self.all_camera_tokens = sum([
-                    self.nusc_proc.gen_tokens(
-                        is_train=True, specified_cams=camera_channels),
-                    self.nusc_proc.gen_tokens(
-                        is_train=False, specified_cams=camera_channels)], [])
-            else:
-                self.all_camera_tokens = sum([
-                    self.nusc_proc.gen_tokens(
-                        is_train=False, specified_cams=camera_channels)], [])
-        else:
-            scenes = self.nusc_proc.get_avail_scenes(scene_names)
-            self.all_camera_tokens = []
-            for camera in camera_channels:
-                for scene in scenes:
-                    camera_tokens = self.nusc_proc.get_camera_sample_data(
-                            scene, camera
-                            )
-                    self.all_camera_tokens.extend(camera_tokens)
-
-        self.idx = 0
-
-    def __iter__(self):
-        self.idx = 0
-        return self
-
-    def __next__(self):
-        while self.idx >= len(self.all_camera_tokens):
-            raise StopIteration
-
-        camera_token = self.all_camera_tokens[self.idx]
-        camera_sample_data = self.nusc_proc.nusc.get('sample_data',
-                camera_token)
-
-        img_path = os.path.join(self.nusc_proc.get_data_root(),
-                camera_sample_data['filename'])
-        img = pil_loader(img_path)
-
-        img, ratio, du, dv = image_resize(img, self.height, self.width, 0, 0)
-
-        point_cloud_uv = self.nusc_proc.get_proj_dist_sensor(camera_token,
-                sensor_type=self.fused_dist_sensor)
-        point_cloud_uv = self.nusc_proc.adjust_cloud_uv(point_cloud_uv, 
-                self.width, self.height, ratio, du, dv)
-
-        if self.show_bboxes:
-            bboxes, cats = self.nusc_proc.gen_2d_bboxes(camera_token)
-            bboxes = self.nusc_proc.adjust_2d_bboxes(bboxes,
-                    self.width, self.height, ratio, du, dv)
-        else:
-            bboxes, cats = [], []
-
-        self.idx += 1
-
-        return img, point_cloud_uv, bboxes, cats
+# for filtering bboxes of stationary objects
+STATIONARY_CATEGORIES={'movable_object.trafficcone', 'movable_object.barrier',
+                       'movable_object.debris', 'static_object.bicycle_rack'}
         
 class NuScenesProcessor:
     """ Preprocessor for the nuScenes Dataset 
@@ -114,7 +42,7 @@ class NuScenesProcessor:
     def __init__(self, version, data_root, frame_ids,
             speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             use_keyframe=False, stationary_filter=False,
-            how_to_gen_masks='maskrcnn', seg_mask='none'):
+            how_to_gen_masks='bbox', seg_mask='none'):
 
         self.version = version
         self.data_root = data_root
@@ -360,9 +288,11 @@ class NuScenesProcessor:
         # initialize the mask as black
         mask = np.zeros((img_height, img_width), dtype=np.uint8)
 
-        if self.how_to_gen_masks == 'black':
-            # no additional processing required
-            mask = Image.fromarray(mask)
+        if self.how_to_gen_masks == 'maskrcnn':
+            img_path = os.path.join(self.data_root,
+                                     camera_sample_data['filename'])
+            mask_path = os.path.splitext(img_path)[0] + '-fseg.jpg'
+            mask = Image.open(mask_path)
 
         elif self.how_to_gen_masks == 'bbox' and self.use_keyframe:
             # bboxes are only available for keyframes
@@ -376,10 +306,9 @@ class NuScenesProcessor:
             mask = Image.fromarray(mask)
 
         else:
-            img_path = os.path.join(self.data_root,
-                                     camera_sample_data['filename'])
-            mask_path = os.path.splitext(img_path)[0] + '-fseg.jpg'
-            mask = pil_loader(mask_path)
+            # full black masks as fallback
+            # no additional processing required
+            mask = Image.fromarray(mask)
 
         return mask
 

@@ -174,5 +174,5 @@ class SimulateDataLoaderOptions:
                 os.path.expanduser(self.options.data_path)
                 )
         if not os.path.exists(self.options.log_dir):
-            os.mkdir(self.options.log_dir)
+            os.makedirs(self.options.log_dir)
         return self.options

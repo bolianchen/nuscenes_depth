@@ -1,9 +1,12 @@
 import os
 import numpy as np
-from options import ViewScenesOptions
-from datasets import NuScenesIterator, NuScenesProcessor
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
+
+from options import ViewScenesOptions
+from lib.data_iterators import NuScenesIterator
+from lib.img_processing import NuScenesProcessor
+
 
 def main(opts):
     """Render the camera images fused with the specified distance sensor
@@ -14,7 +17,6 @@ def main(opts):
             camera_channels=opts.camera_channels,
             use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter,
-            how_to_gen_masks=opts.how_to_gen_masks,
             seg_mask=opts.seg_mask)
 
     # display synchronized frames from multiple cameras

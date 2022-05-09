@@ -1,10 +1,12 @@
 import os
-from options import SimulateDataLoaderOptions
-from datasets import NuScenesProcessor, NuScenesDataset
 import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
+
+from options import SimulateDataLoaderOptions
 from lib.utils import normalize_image
+from lib.img_processing import NuScenesProcessor
+from datasets import NuScenesDataset
 
 def main(opts):
     """Store a batch of dataloader output to tensorboard
