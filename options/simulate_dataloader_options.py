@@ -125,7 +125,7 @@ class SimulateDataLoaderOptions:
         self.parser.add_argument("--how_to_gen_masks",
                                  type=str,
                                  choices=["maskrcnn", "bbox", "black"],
-                                 default="maskrcnn",
+                                 default="black",
                                  help="maskrcnn - generate segmentation masks "
                                       " with a Mask R-CNN model pretrained on "
                                       "COCO and save alongside the camera "
