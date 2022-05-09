@@ -5,7 +5,7 @@ The main goal is to provide a PyTorch dataset of nuScenes to facilitate the mode
 - Radar and lidar data with the closest timestamps are fused with each camera frame for sparse supervision design, which may enhance the performance of unsupervised models.
 - A scenes-viewing functionality is available to visaulize fused sensor data of the specified scenes in animation.
 
-## Scene-viewing Functionality
+## Scenes-viewing Functionality
 <ins>**Scene-0757-radar**</ins>
 <p align="center">
   <img src="reference_materials/scene_0757_radar.gif" width="600" />
