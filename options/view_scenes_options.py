@@ -77,7 +77,13 @@ class ViewScenesOptions:
                                  nargs="+",
                                  type=str,
                                  default=['day', 'night', 'rain'],
-                                 help="available scenes")
+                                 help="['day', 'night', 'rain']: all the scenes; "
+                                      "['day']: daytime and not rainy scenes; "
+                                      "['night']: nighttime and not rainy scenes; "
+                                      "['rain']: rainy scenes on both daytime and nighttime; "
+                                      "['day', 'night']: daytime, nighttime, and not rainy scenes; "
+                                      "['day', 'rain']: rainy scenes on daytime; "
+                                      "['night', 'rain']: rainy scenes on nighttime;")
         self.parser.add_argument("--use_keyframe",
                                  action="store_true",
                                  help="whether to use keyframes "
