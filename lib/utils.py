@@ -80,3 +80,57 @@ def image_resize(image, target_h, target_w, shift_h, shift_w,
 
     return image, r, delta_u, delta_v
 
+def check_if_scene_pass(scene_description, pass_filters=['day', 'night', 'rain']):
+    """
+    Args:
+        scene_description(str): description included in the scene metadata
+        pass_filters(list of str): check the consequeneces below
+            ['day']: daytime and not rainy scenes
+            ['night']: nighttime and not rainy scenes
+            ['rain']: rainy scenes on both daytime and nighttime
+            ['day', 'night']: daytime, nighttime, and not rainy scenes
+            ['day', 'rain']: rainy scenes on daytime
+            ['night', 'rain']: rainy scenes on nighttime
+            ['day', 'night', 'rain']: all the scenes
+    """
+    description = scene_description.lower()
+    pass_filters = [fil for fil in pass_filters
+            if fil in ('day', 'night', 'rain')]
+
+    if len(pass_filters) == 0:
+        raise NameError('invalid options are detected in pass_filters')
+
+    if len(pass_filters) == 3:
+        return True
+
+    if 'day' in pass_filters:
+        # ['day', 'night']
+        if 'night' in pass_filters:
+            if 'rain' not in description:
+                return True
+        # ['day', 'rain']
+        elif 'rain' in pass_filters:
+            if 'night' not in description and 'rain' in description:
+                return True
+        # ['day']
+        else:
+            if 'night' not in description and 'rain' not in description:
+                return True
+
+    if 'night' in pass_filters:
+        # ['night', 'rain']
+        if 'rain' in pass_filters:
+            if 'night' in description and 'rain' in description:
+                return True
+        # ['night']
+        else:
+            if 'night' in description and 'rain' not in description:
+                return True
+
+    # ['rain']
+    if pass_filters == ['rain']:
+        if 'rain' in description:
+            return True
+
+    return False
+

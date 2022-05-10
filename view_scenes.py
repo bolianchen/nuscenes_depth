@@ -15,6 +15,7 @@ def main(opts):
     nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
             opts.frame_ids, speed_limits=opts.speed_limits,
             camera_channels=opts.camera_channels,
+            pass_filters=opts.pass_filters,
             use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter,
             seg_mask=opts.seg_mask)

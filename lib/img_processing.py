@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import numpy as np
 import bisect
 import imageio
@@ -15,6 +16,7 @@ from pyquaternion.quaternion import Quaternion
 
 from PIL import Image
 from lib.algos import generate_seg_masks
+from lib.utils import check_if_scene_pass
 
 # a map to determine which radars to be projected onto each camera image plane
 CAM2RADARS = {
@@ -41,8 +43,9 @@ class NuScenesProcessor:
 
     def __init__(self, version, data_root, frame_ids,
             speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
-            use_keyframe=False, stationary_filter=False,
-            how_to_gen_masks='bbox', regen_masks=False, seg_mask='none'):
+            pass_filters=['day', 'night', 'rain'], use_keyframe=False,
+            stationary_filter=False, how_to_gen_masks='bbox',
+            regen_masks=False, seg_mask='none'):
 
         self.version = version
         self.data_root = data_root
@@ -79,6 +82,7 @@ class NuScenesProcessor:
         # each scene contains info of all the sensor channels
         self.camera_channels = camera_channels
 
+        self.pass_filters = pass_filters
         self.use_keyframe=use_keyframe
         self.stationary_filter = stationary_filter
 
@@ -97,15 +101,18 @@ class NuScenesProcessor:
                         )
             generate_seg_masks(img_paths, seg_mask=seg_mask)
 
-    def get_avail_scenes(self, scene_names):
+    def get_avail_scenes(self, scene_names, check_all=True):
         """Return the metadata of all the available scenes contained in split
 
         Args:
             scene_names(list of str): a list of scene names, ex:['scene-0001']
+            check_all(bool): if False, only check the files existence denoted
+                            by (2) in the following.
 
         scene_names meet the follows are filtered out:
         (1) do not have canbus data if self.screen_speed = True
         (2) data does not exist in hard drive (use CAM_FRONT as representative)
+        (3) scenes that do not meet the criteria of the specified pass_filters
 
         By including the design of (2), we allow the use cases when users only
         download a subset of raw files.
@@ -116,7 +123,7 @@ class NuScenesProcessor:
 
         scenes = self.nusc.scene
 
-        if self.screen_speed:
+        if check_all and self.screen_speed:
             # filter out scenes that have no canbus data
             # TODO: check if 419 should be added
             canbus_blacklist = self.canbus.can_blacklist + [419]
@@ -126,15 +133,20 @@ class NuScenesProcessor:
 
         scene_names = set(scene_names)
 
-        # exclude the scenes whose first sample does not exist
         kept_indices = []
         for idx, scene in enumerate(scenes):
             first_sample_token = scene['first_sample_token']
             first_sample = self.nusc.get('sample', first_sample_token)
             first_filename = self.nusc.get_sample_data_path(
                     first_sample['data']['CAM_FRONT'])
+
+            # exclude the scenes whose first sample does not exist
             if os.path.isfile(first_filename) and scene['name'] in scene_names:
-                kept_indices.append(idx)
+                scene_description = scene['description']
+
+                # impose scene pass_filters
+                if not check_all or check_if_scene_pass(scene_description, self.pass_filters):
+                    kept_indices.append(idx)
 
         scenes = [scenes[i] for i in kept_indices]
 
@@ -158,7 +170,7 @@ class NuScenesProcessor:
             split = self.usable_splits['val']
 
         all_tokens = []
-        all_scenes = self.get_avail_scenes(split)
+        all_scenes = self.get_avail_scenes(split, check_all=is_train)
 
         if len(specified_cams) == 0:
             camera_channels = self.camera_channels
@@ -170,7 +182,7 @@ class NuScenesProcessor:
                 # collect all the frames satisfying the specified requirements
                 # in each scene
                 camera_frames = self.get_camera_sample_data(
-                        scene, camera_channel )
+                        scene, camera_channel)
                 all_tokens.extend(camera_frames)
 
         return all_tokens
@@ -315,7 +327,7 @@ class NuScenesProcessor:
         """Collect the image paths of the specified cameras in specified scenes
         """
         img_paths = []
-        scenes = self.get_avail_scenes(scene_names)
+        scenes = self.get_avail_scenes(scene_names, check_all=False)
         for scene in scenes:
             sample_token = scene['first_sample_token']
             keyframe = self.nusc.get('sample', sample_token)

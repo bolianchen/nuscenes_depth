@@ -33,15 +33,20 @@ class NuScenesIterator:
             if self.nusc_proc.get_version() != 'v1.0-test':
                 self.all_camera_tokens = sum([
                     self.nusc_proc.gen_tokens(
-                        is_train=True, specified_cams=camera_channels),
-                    self.nusc_proc.gen_tokens(
-                        is_train=False, specified_cams=camera_channels)], [])
+                        is_train=True, specified_cams=camera_channels)], [])
             else:
+                # TODO: speed_limits and pass_filters do not work for v1.0-test
                 self.all_camera_tokens = sum([
                     self.nusc_proc.gen_tokens(
                         is_train=False, specified_cams=camera_channels)], [])
         else:
-            scenes = self.nusc_proc.get_avail_scenes(scene_names)
+            scenes = self.nusc_proc.get_avail_scenes(scene_names, check_all=True)
+            if len(scenes) == 0:
+                raise RuntimeError(
+                        'No qualified scenes were found.\n'\
+                        'Please check if pass_filters were properly defined, '
+                        ' and if the specified scenes contained in the '\
+                        'downloaded raw data.')
             self.all_camera_tokens = []
             for camera in camera_channels:
                 for scene in scenes:

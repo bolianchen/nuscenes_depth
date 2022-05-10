@@ -71,8 +71,13 @@ class ViewScenesOptions:
                                  type=str,
                                  default=[],
                                  help="scenes to iterate over; "
-                                      "leave the list empty to iterate all "
-                                      "available scenes")
+                                      "leave empty to iterate all "
+                                      "available scenes of the train split")
+        self.parser.add_argument("--pass_filters",
+                                 nargs="+",
+                                 type=str,
+                                 default=['day', 'night', 'rain'],
+                                 help="available scenes")
         self.parser.add_argument("--use_keyframe",
                                  action="store_true",
                                  help="whether to use keyframes "

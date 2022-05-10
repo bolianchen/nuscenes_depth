@@ -105,6 +105,11 @@ class SimulateDataLoaderOptions:
                             help="selectable from CAM_FRONT, CAM_FRONT_LEFT, "
                                  "CAM_FRONT_RIGHT, CAM_BACK, CAM_BACK_LEFT, "
                                  "CAM_BACK_RIGHT")
+        self.parser.add_argument("--pass_filters",
+                                 nargs="+",
+                                 type=str,
+                                 default=['day', 'night', 'rain'],
+                                 help="available scenes")
         self.parser.add_argument("--use_keyframe",
                                  action="store_true",
                                  help="whether to use keyframes "
