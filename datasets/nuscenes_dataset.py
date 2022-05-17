@@ -148,8 +148,8 @@ class NuScenesDataset(MonoDataset):
         """Return an Resized segmentation mask
         """
         token = self.nusc_proc.get_adjacent_token(token, frame_id)
-        mask = self.nusc_proc.gen_seg_mask(token)
-        return self.get_image(mask, do_flip, crop_offset)
+        mask = self.nusc_proc.get_seg_mask(token)
+        return self.get_image(mask, do_flip, crop_offset, inter=cv2.INTER_NEAREST)
 
     def load_intrinsics(self, token):
         """Returns a 4x4 camera intrinsics matrix corresponding to the token
