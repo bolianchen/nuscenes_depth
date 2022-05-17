@@ -122,7 +122,7 @@ class SimulateDataLoaderOptions:
                                       "non-movable objects including "
                                       "traffic cones, barriers, "
                                       "debris and bicycle racks")
-        self.parser.add_argument("--speed_limits",
+        self.parser.add_argument("--speed_bound",
                             default=[0, np.inf],
                             type=float,
                             nargs="+",

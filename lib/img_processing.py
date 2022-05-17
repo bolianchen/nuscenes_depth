@@ -42,7 +42,7 @@ class NuScenesProcessor:
     """
 
     def __init__(self, version, data_root, frame_ids,
-            speed_limits=[0.0, np.inf], camera_channels=['CAM_FRONT'],
+            speed_bound=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             pass_filters=['day', 'night', 'rain'], use_keyframe=False,
             stationary_filter=False, how_to_gen_masks='bbox',
             regen_masks=False, seg_mask='none'):
@@ -69,12 +69,12 @@ class NuScenesProcessor:
             raise NotImplementedError
 
         # initialize an instance of nuScenes canbus data if needed
-        if speed_limits[0] == 0.0 and np.isposinf(speed_limits[1]):
+        if speed_bound[0] == 0.0 and np.isposinf(speed_bound[1]):
             self.screen_speed = False
         else:
             self.screen_speed = True
             self.canbus = NuScenesCanBus(dataroot=data_root)
-            self.speed_limits = speed_limits
+            self.speed_bound = speed_bound
 
         # make sure the sequence ids are sorted in ascending order
         self.frame_ids = sorted(frame_ids)
@@ -274,7 +274,7 @@ class NuScenesProcessor:
 
         return bboxes
 
-    def gen_seg_mask(self, cam_token):
+    def get_seg_mask(self, cam_token):
         """Returns the segmentation mask corresponding to the cam_token image
 
         Args:
@@ -302,7 +302,7 @@ class NuScenesProcessor:
         if self.how_to_gen_masks == 'maskrcnn':
             img_path = os.path.join(self.data_root,
                                      camera_sample_data['filename'])
-            mask_path = os.path.splitext(img_path)[0] + '-fseg.jpg'
+            mask_path = os.path.splitext(img_path)[0] + '-fseg.png'
             mask = Image.open(mask_path)
 
         elif self.how_to_gen_masks == 'bbox' and self.use_keyframe:
@@ -342,9 +342,7 @@ class NuScenesProcessor:
                     img_path = os.path.join(
                             self.data_root, cam_sample_data['filename'])
                     # add the path only if the corresponding mask does not exists
-                    if self.regen_masks or not os.path.exists(
-                            os.path.splitext(img_path)[0] + '-fseg.jpg'):
-                        img_paths.append(img_path)
+                    img_paths.append(img_path)
 
                     if cam_sample_data['next'] == '':
                         break
@@ -661,8 +659,8 @@ class NuScenesProcessor:
         actual_speed = np.interp(sample['timestamp'],
                                  scene_veh_speed[0],
                                  scene_veh_speed[1])
-        low_speed = self.speed_limits[0]
-        high_speed = self.speed_limits[1]
+        low_speed = self.speed_bound[0]
+        high_speed = self.speed_bound[1]
         if actual_speed < low_speed or actual_speed > high_speed:
             return False
 
