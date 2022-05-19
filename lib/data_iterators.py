@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 from PIL import Image
 from .utils import image_resize
@@ -28,7 +30,7 @@ class NuScenesIterator:
         self.show_bboxes = show_bboxes
         self.visibilities = visibilities
 
-        # includes all the scenes
+        # includes all the train scenes if no scene_names given
         if len(scene_names) == 0:
             if self.nusc_proc.get_version() != 'v1.0-test':
                 self.all_camera_tokens = sum([

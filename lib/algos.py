@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 from tqdm import tqdm
 import numpy as np
