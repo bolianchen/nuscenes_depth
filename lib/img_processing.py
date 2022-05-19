@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 import numpy as np
 import bisect
@@ -41,8 +43,8 @@ class NuScenesProcessor:
     def __init__(self, version, data_root, frame_ids,
             speed_bound=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             pass_filters=['day', 'night', 'rain'], use_keyframe=False,
-            stationary_filter=False, how_to_gen_masks='bbox',
-            regen_masks=False, seg_mask='none'):
+            stationary_filter=False, seg_mask='none', how_to_gen_masks='bbox',
+            maskrcnn_batch_size=4, regen_masks=False):
 
         self.version = version
         self.data_root = data_root
@@ -85,7 +87,6 @@ class NuScenesProcessor:
 
         # which type of segmentation masks to generate 
         self.how_to_gen_masks = how_to_gen_masks
-        self.regen_masks = regen_masks
 
         if seg_mask != 'none' and self.how_to_gen_masks == 'maskrcnn':
             # collect all image paths of the specified camera_channels
@@ -96,7 +97,8 @@ class NuScenesProcessor:
                 img_paths.extend(
                         self.get_img_paths(scene_names, self.camera_channels)
                         )
-            generate_seg_masks(img_paths, seg_mask=seg_mask)
+            generate_seg_masks(img_paths, seg_mask=seg_mask,
+                    regen_masks=regen_masks, batch_size=maskrcnn_batch_size)
 
     def get_avail_scenes(self, scene_names, check_all=True):
         """Return the metadata of all the available scenes contained in split

@@ -1,4 +1,4 @@
-# All rights reserved.
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
 
 from __future__ import absolute_import, division, print_function
 
@@ -137,6 +137,10 @@ class SimulateDataLoaderOptions:
                                       "images in disk. Each mask would have "
                                       "the same name with the correponding "
                                       "image except for the suffix -fseg ")
+        self.parser.add_argument("--maskrcnn_batch_size",
+                                 type=int,
+                                 help="batch size",
+                                 default=4)
         self.parser.add_argument("--regen_masks",
                                  help="if set and how_to_gen_masks=maskrcnn "
                                       "existing mask-rcnnmasks would be "
@@ -158,16 +162,6 @@ class SimulateDataLoaderOptions:
                                  type=int,
                                  help="number of dataloader workers",
                                  default=4)
-
-        # OPTIONS to FILTER RADAR and LIDAR GROUND-TRUTH
-        self.parser.add_argument("--min_depth",
-                                 type=float,
-                                 help="minimum depth",
-                                 default=0.1)
-        self.parser.add_argument("--max_depth",
-                                 type=float,
-                                 help="maximum depth",
-                                 default=100.0)
 
         # TENSORBOARD LOG OPTIONS
         self.parser.add_argument("--log_dir",

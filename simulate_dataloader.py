@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 import torch
 from torch.utils.data import DataLoader
@@ -18,20 +20,21 @@ def main(opts):
             pass_filters=opts.pass_filters,
             use_keyframe=opts.use_keyframe,
             stationary_filter=opts.stationary_filter,
-            how_to_gen_masks=opts.how_to_gen_masks,
-            regen_masks=opts.regen_masks, seg_mask=opts.seg_mask)
+            seg_mask=opts.seg_mask, how_to_gen_masks=opts.how_to_gen_masks,
+            maskrcnn_batch_size=opts.maskrcnn_batch_size,
+            regen_masks=opts.regen_masks)
 
     # initialize training dataset
     dataset = NuScenesDataset(
-            opts.data_path, nusc_proc, opts.height, opts.width,
-            opts.frame_ids, len(opts.scales), is_train=True,
-            not_do_color_aug=opts.not_do_color_aug,
+            opts.data_path, nusc_proc.gen_tokens(is_train=True),
+            opts.height, opts.width, opts.frame_ids, len(opts.scales),
+            is_train=True, not_do_color_aug=opts.not_do_color_aug,
             not_do_flip=opts.not_do_flip, do_crop=opts.do_crop,
             crop_bound=opts.crop_bound, seg_mask=opts.seg_mask,
             MIN_OBJECT_AREA=opts.MIN_OBJECT_AREA, boxify=opts.boxify,
             prob_to_mask_objects=opts.prob_to_mask_objects,
             use_radar=opts.use_radar, use_lidar=opts.use_lidar,
-            min_depth=opts.min_depth, max_depth=opts.max_depth)
+            proc=nusc_proc)
 
     dataloader = DataLoader(dataset, opts.batch_size, shuffle = True,
             num_workers=opts.num_workers, pin_memory=True, drop_last=True)

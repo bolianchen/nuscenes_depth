@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 import random
 import bisect
@@ -22,11 +24,9 @@ class NuScenesDataset(MonoDataset):
         """
         filenames ==> tokens of camera sample_data frames
         """
-        args = list(args)
-        self.nusc_proc = args[1]
-        self.nusc = self.nusc_proc.get_nuscenes_obj()
-        args[1] = self.nusc_proc.gen_tokens(is_train=kwargs['is_train'])
         super(NuScenesDataset, self).__init__(*args, **kwargs)
+        self.nusc_proc = kwargs['proc']
+        self.nusc = self.nusc_proc.get_nuscenes_obj()
 
     def check_depth(self):
         """Check if ground-truth depth exists
