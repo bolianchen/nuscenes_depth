@@ -7,7 +7,7 @@ from tensorboardX import SummaryWriter
 
 from options import SimulateDataLoaderOptions
 from lib.utils import normalize_image
-from lib.img_processing import NuScenesProcessor
+from lib.dataset_processors import NuScenesProcessor
 from datasets import NuScenesDataset
 
 def main(opts):

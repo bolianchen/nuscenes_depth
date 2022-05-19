@@ -6,8 +6,8 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 
 from options import ViewScenesOptions
-from lib.data_iterators import NuScenesIterator
-from lib.img_processing import NuScenesProcessor
+from lib.dataset_iterators import NuScenesIterator
+from lib.dataset_processors import NuScenesProcessor
 
 def main(opts):
     """Render the camera images fused with the specified distance sensor
