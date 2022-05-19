@@ -31,9 +31,9 @@ def main(opts):
             is_train=True, not_do_color_aug=opts.not_do_color_aug,
             not_do_flip=opts.not_do_flip, do_crop=opts.do_crop,
             crop_bound=opts.crop_bound, seg_mask=opts.seg_mask,
-            MIN_OBJECT_AREA=opts.MIN_OBJECT_AREA, boxify=opts.boxify,
-            prob_to_mask_objects=opts.prob_to_mask_objects,
+            boxify=opts.boxify, MIN_OBJECT_AREA=opts.MIN_OBJECT_AREA, 
             use_radar=opts.use_radar, use_lidar=opts.use_lidar,
+            prob_to_mask_objects=opts.prob_to_mask_objects,
             proc=nusc_proc)
 
     dataloader = DataLoader(dataset, opts.batch_size, shuffle = True,

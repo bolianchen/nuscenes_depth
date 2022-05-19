@@ -14,8 +14,6 @@ import torch
 import torch.utils.data as data
 from torchvision import transforms
 
-# TODO:
-#    4. screen out daytime, nighttime, all
 
 class NuScenesDataset(MonoDataset):
     """ nuScenes dataset loader """
