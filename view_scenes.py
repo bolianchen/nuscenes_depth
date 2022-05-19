@@ -1,24 +1,24 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 
 from options import ViewScenesOptions
-from lib.data_iterators import NuScenesIterator
-from lib.img_processing import NuScenesProcessor
-
+from lib.dataset_iterators import NuScenesIterator
+from lib.dataset_processors import NuScenesProcessor
 
 def main(opts):
     """Render the camera images fused with the specified distance sensor
     """
     # initialize a nuscenes preprocessor
     nusc_proc = NuScenesProcessor(opts.nuscenes_version, opts.data_path,
-            opts.frame_ids, speed_limits=opts.speed_limits,
+            opts.frame_ids, speed_bound=opts.speed_bound,
             camera_channels=opts.camera_channels,
             pass_filters=opts.pass_filters,
             use_keyframe=opts.use_keyframe,
-            stationary_filter=opts.stationary_filter,
-            seg_mask=opts.seg_mask)
+            stationary_filter=opts.stationary_filter)
 
     # display synchronized frames from multiple cameras
     if opts.use_keyframe and len(opts.camera_channels) > 1:

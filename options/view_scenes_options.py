@@ -1,3 +1,4 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
 
 from __future__ import absolute_import, division, print_function
 
@@ -40,19 +41,6 @@ class ViewScenesOptions:
                                  type=int,
                                  help="frames to load",
                                  default=[0, -1, 1])
-
-        ## POSSIBLY MOBILE MASKS options
-        MASK = ["none", "mono", "color"]
-        self.parser.add_argument("--seg_mask",
-                                 type=str,
-                                 choices=MASK,
-                                 help="whether to use segmetation mask")
-        self.parser.add_argument("--MIN_OBJECT_AREA",
-                                 type=int,
-                                 default=20,
-                                 help="size threshold to discard mobile masks"
-                                      " set as 0 to disable the size screening"
-                                 )
 
         ## OPTIONS for SPECIFIC DATASET PREPROCESSING for NUSCENES DATASETS
         self.parser.add_argument("--nuscenes_version",
@@ -109,36 +97,19 @@ class ViewScenesOptions:
                                       "non-movable objects including "
                                       "traffic cones, barriers, "
                                       "debris and bicycle racks")
-        self.parser.add_argument("--speed_limits",
+        self.parser.add_argument("--speed_bound",
                             default=[0, np.inf],
                             type=float,
                             nargs="+",
                             help="lower and upper speed limits to screen "
-                                 "samples")
-        self.parser.add_argument("--how_to_gen_masks",
-                                 type=str,
-                                 choices=["maskrcnn", "bbox", "black"],
-                                 default="black",
-                                 help="maskrcnn - generate segmentation masks "
-                                      " with a Mask R-CNN model pretrained on "
-                                      "COCO and save alongside the camera "
-                                      "images in disk")
+                                 "samples; simpy type -inf or inf "
+                                 "while using command line")
         self.parser.add_argument("--fused_dist_sensor",
                                  type=str,
                                  default="radar",
                                  help="which distance sensor to be fused"
                                       "with camera image")
 
-        # OPTIONS to FILTER RADAR and LIDAR GROUND-TRUTH
-        self.parser.add_argument("--min_depth",
-                                 type=float,
-                                 help="minimum depth",
-                                 default=0.1)
-        self.parser.add_argument("--max_depth",
-                                 type=float,
-                                 help="maximum depth",
-                                 default=100.0)
-        
     def parse(self):
         self.options = self.parser.parse_args()
         self.options.project_dir = project_dir

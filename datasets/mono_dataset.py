@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import random
 import numpy as np
+import cv2
 import copy
 from PIL import Image  # using pillow-simd for increased speed
 
@@ -54,8 +55,6 @@ class MonoDataset(data.Dataset):
                  MIN_OBJECT_AREA=20,
                  use_radar=False,
                  use_lidar=False,
-                 min_depth=0.1,
-                 max_depth=100.0,
                  prob_to_mask_objects=0.0, **kwargs):
         super(MonoDataset, self).__init__()
 
@@ -80,8 +79,6 @@ class MonoDataset(data.Dataset):
         self.MIN_OBJECT_AREA = MIN_OBJECT_AREA
         self.use_radar = use_radar
         self.use_lidar = use_lidar
-        self.min_depth = min_depth
-        self.max_depth = max_depth
         self.prob_to_mask_objects = prob_to_mask_objects
 
         # PIL image loader
@@ -199,7 +196,7 @@ class MonoDataset(data.Dataset):
                 object_mask = torch.any(object_mask, axis=0, keepdim=True)
                 inputs['mask', fid, scale] = object_mask.to(torch.float32)
 
-    def get_image(self, image, do_flip, crop_offset=-3):
+    def get_image(self, image, do_flip, crop_offset=-3, inter=cv2.INTER_AREA):
         r"""
         Resize (and crop) an image to specified height and width.
         crop_offset is an integer representing how the image will be cropped:
@@ -211,16 +208,16 @@ class MonoDataset(data.Dataset):
         # If crop_offset is set to -3, crop the image since the top
         # Resize the image to (self.height, self.width).
         if crop_offset == -3:            
-            image, ratio, delta_u, delta_v = image_resize(image, self.height,
-                                                        self.width, 0.0, 0.0) 
+            image, ratio, delta_u, delta_v = image_resize(
+                    image, self.height, self.width, 0.0, 0.0, inter=inter) 
         # Otherwise resize the image according to self.width, 
         # and then crop the image to self.height according to crop_offset.
         else:
             raw_w, raw_h = image.size
             resize_w = self.width
             resize_h = int(raw_h * resize_w / raw_w)
-            image, ratio, delta_u, delta_v = image_resize(image, resize_h,
-                                                          resize_w, 0.0, 0.0)
+            image, ratio, delta_u, delta_v = image_resize(
+                    image, resize_h, resize_w, 0.0, 0.0, inter=inter)
             top = int(self.crop_bound[0] * resize_h)
             if len(self.crop_bound) == 1:
                 bottom = top

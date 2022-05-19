@@ -4,3 +4,4 @@ matplotlib
 tensorboardx
 pillow
 tqdm
+tensorboard

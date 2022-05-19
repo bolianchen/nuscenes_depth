@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import torch.utils.data as data
 from torchvision import transforms
 from .mono_dataset import pil_loader

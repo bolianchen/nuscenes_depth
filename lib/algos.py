@@ -1,3 +1,5 @@
+# Copyright © 2022, Bolian Chen. Released under the MIT license.
+
 import os
 from tqdm import tqdm
 import numpy as np
@@ -9,7 +11,7 @@ from torchvision.models.detection import maskrcnn_resnet50_fpn
 import datasets
 
 def generate_seg_masks(img_paths, threshold=0.5, seg_mask='color',
-        batch_size=4, num_workers=4):
+        batch_size=4, num_workers=4, regen_masks=False):
     """Generate segmentation masks of all the input images
     Args:
         img_paths(list): list of image paths to generate segmentation masks
@@ -19,7 +21,9 @@ def generate_seg_masks(img_paths, threshold=0.5, seg_mask='color',
     model = model.to(device)
     model.eval()
 
-    # make dataloader
+    if not regen_masks:
+        img_paths = [img for img in img_paths if not os.path.exists(
+            os.path.splitext(img)[0] + '-fseg.png')]
     
     img_dataset = datasets.Paths2ImagesDataset(img_paths)
     img_dataloader = DataLoader(img_dataset,
@@ -78,7 +82,7 @@ def generate_seg_masks(img_paths, threshold=0.5, seg_mask='color',
                             ]
                 mask_img = np.sum(mask_img, axis=0)
 
-            mask_path = os.path.splitext(path)[0] + '-fseg.jpg'
+            mask_path = os.path.splitext(path)[0] + '-fseg.png'
             imageio.imsave(mask_path, mask_img.astype(np.uint8))
 
 
