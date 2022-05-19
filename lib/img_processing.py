@@ -1,9 +1,6 @@
 import os
-import sys
-import re
 import numpy as np
 import bisect
-import imageio
 from matplotlib import pyplot as plt
 
 from nuscenes.nuscenes import NuScenes

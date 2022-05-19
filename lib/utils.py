@@ -81,7 +81,7 @@ def image_resize(image, target_h, target_w, shift_h, shift_w,
     return image, r, delta_u, delta_v
 
 def check_if_scene_pass(scene_description, pass_filters=['day', 'night', 'rain']):
-    """
+    """Return True if scene_description meets the specified pass_filter
     Args:
         scene_description(str): description included in the scene metadata
         pass_filters(list of str): check the consequeneces below
