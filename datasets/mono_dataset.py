@@ -55,8 +55,6 @@ class MonoDataset(data.Dataset):
                  MIN_OBJECT_AREA=20,
                  use_radar=False,
                  use_lidar=False,
-                 min_depth=0.1,
-                 max_depth=100.0,
                  prob_to_mask_objects=0.0, **kwargs):
         super(MonoDataset, self).__init__()
 
@@ -81,8 +79,6 @@ class MonoDataset(data.Dataset):
         self.MIN_OBJECT_AREA = MIN_OBJECT_AREA
         self.use_radar = use_radar
         self.use_lidar = use_lidar
-        self.min_depth = min_depth
-        self.max_depth = max_depth
         self.prob_to_mask_objects = prob_to_mask_objects
 
         # PIL image loader
