@@ -22,7 +22,7 @@ def main(opts):
             stationary_filter=opts.stationary_filter,
             seg_mask=opts.seg_mask, how_to_gen_masks=opts.how_to_gen_masks,
             maskrcnn_batch_size=opts.maskrcnn_batch_size,
-            regen_masks=opts.regen_masks)
+            regen_masks=opts.regen_masks, subset_ratio=opts.subset_ratio)
 
     # initialize training dataset
     dataset = NuScenesDataset(

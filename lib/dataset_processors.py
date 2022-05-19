@@ -1,6 +1,7 @@
 # Copyright © 2022, Bolian Chen. Released under the MIT license.
 
 import os
+import random
 import numpy as np
 import bisect
 from matplotlib import pyplot as plt
@@ -44,7 +45,7 @@ class NuScenesProcessor:
             speed_bound=[0.0, np.inf], camera_channels=['CAM_FRONT'],
             pass_filters=['day', 'night', 'rain'], use_keyframe=False,
             stationary_filter=False, seg_mask='none', how_to_gen_masks='bbox',
-            maskrcnn_batch_size=4, regen_masks=False):
+            maskrcnn_batch_size=4, regen_masks=False, subset_ratio=1.0):
 
         self.version = version
         self.data_root = data_root
@@ -66,6 +67,12 @@ class NuScenesProcessor:
             self.usable_splits = {'val': self.all_splits['test']}
         else:
             raise NotImplementedError
+
+        # randomly choose subset of train and val scenes
+        if subset_ratio < 1.0:
+            for split, scene_names in self.usable_splits.items():
+                sample_num = max(1, round(len(scene_names) * subset_ratio))
+                self.usable_splits[split] = random.sample(scene_names, sample_num)
 
         # initialize an instance of nuScenes canbus data if needed
         if speed_bound[0] == 0.0 and np.isposinf(speed_bound[1]):
@@ -164,12 +171,12 @@ class NuScenesProcessor:
         """
 
         if is_train:
-            split = self.usable_splits['train']
+            split_scene_names = self.usable_splits['train']
         else:
-            split = self.usable_splits['val']
+            split_scene_names = self.usable_splits['val']
 
         all_tokens = []
-        all_scenes = self.get_avail_scenes(split, check_all=is_train)
+        all_scenes = self.get_avail_scenes(split_scene_names, check_all=is_train)
 
         if len(specified_cams) == 0:
             camera_channels = self.camera_channels

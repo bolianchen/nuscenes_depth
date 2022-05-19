@@ -28,7 +28,9 @@ class SimulateDataLoaderOptions:
         self.parser.add_argument("--subset_ratio",
                                  type=float,
                                  default=1.0,
-                                 help="random sample a subset of the dataset") 
+                                 help="random sample a subset of scenes in "
+                                      "the train and val datasets, respectively"
+                                      " ; at least one scene would be sampled") 
         self.parser.add_argument("--height",
                                  type=int,
                                  help="input image height",
