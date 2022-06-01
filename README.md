@@ -22,7 +22,9 @@ The main goal is to provide a PyTorch dataset of nuScenes to facilitate the mode
 </p>
 
 ## Download the nuScenes Dataset
-- Go to [the offical page](https://www.nuscenes.org/nuscenes#download) to download either the Mini subset or the Trainval subset.
+- Go to [the offical page](https://www.nuscenes.org/nuscenes#download) to download either the Mini subset or the Trainval subset. 
+- For the Trainval subset, this repository should work for any subset of the 10 trainval blobs. (not required to download all)
+- CAN bus expansion data is needed to filter images with lower and upper speed bounds.
 - Create a folder named "nuscenes_data" and uncompress the downloaded files into it to ensure the file structure as shown:
 <p align="center">
   <img src="reference_materials/file_structure.png" width="600" />
@@ -35,5 +37,8 @@ conda install pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 -c pytorch
 conda install --file requirements.txt
 pip install nuscenes-devkit
 ```
-
-## Test on Unsupervised Depth Prediction Models
+## How to Use
+Please try to find examples in [the testing scripts](https://github.com/bolianchen/nuscenes_depth/tree/main/testing) or check [the option files](https://github.com/bolianchen/nuscenes_depth/tree/main/options).  
+Feel free to create new issues for any questions.
+## Training of Unsupervised Depth Prediction Models
+- [Monodepth2](https://github.com/bolianchen/monodepth2_on_nuscenes_cityscapes)
