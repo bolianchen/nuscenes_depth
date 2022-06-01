@@ -69,7 +69,6 @@ def generate_seg_masks(img_paths, threshold=0.5, seg_mask='color',
                 mask_img = masks * mask_img
                 mask_img = np.sum(mask_img, axis=0)
                 mask_img = (mask_img > 0).astype(np.uint8) * 255
-                return mask_img
             elif seg_mask == 'color':
                 for i in range(masks.shape[0]-1):
                     masks[i+1:] *= 1 - masks[i]
